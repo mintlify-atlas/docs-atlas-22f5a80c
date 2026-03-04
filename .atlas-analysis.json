@@ -1,0 +1,135 @@
+{
+  "projectType": "saas",
+  "projectName": "Listmonk",
+  "projectDescription": "High performance, self-hosted newsletter and mailing list manager with a modern dashboard.",
+  "theme": "mint",
+  "primaryColor": "#040404",
+  "lightColor": "#0454d4",
+  "darkColor": "#fc6c04",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart",
+              "concepts"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/subscribers",
+              "features/lists",
+              "features/campaigns",
+              "features/templates",
+              "features/media"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/app-config",
+              "configuration/email-providers",
+              "configuration/authentication",
+              "configuration/privacy-security"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/bounces",
+              "advanced/transactional",
+              "advanced/archives",
+              "advanced/integrations",
+              "advanced/performance"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "development/developer-setup",
+              "development/i18n",
+              "development/contributing"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "API Overview",
+            "pages": [
+              "api/overview",
+              "api/authentication"
+            ]
+          },
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api/subscribers",
+              "api/lists",
+              "api/campaigns",
+              "api/templates",
+              "api/media",
+              "api/bounces",
+              "api/transactional",
+              "api/import"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Subscriber and mailing list management",
+    "Campaign creation and scheduling",
+    "Email template designer with visual editor",
+    "Bounce and complaint handling",
+    "Transactional email API",
+    "Public subscription pages and archives",
+    "Media file management",
+    "Subscriber import/export",
+    "Campaign analytics and tracking",
+    "Multi-user support with role-based access",
+    "OIDC authentication",
+    "i18n multi-language support",
+    "RESTful API for integrations"
+  ],
+  "publicApiSurface": [
+    "GET /api/subscribers - Query subscribers",
+    "POST /api/subscribers - Create subscriber",
+    "PUT /api/subscribers/:id - Update subscriber",
+    "DELETE /api/subscribers/:id - Delete subscriber",
+    "GET /api/lists - Get all lists",
+    "POST /api/lists - Create list",
+    "PUT /api/lists/:id - Update list",
+    "DELETE /api/lists/:id - Delete list",
+    "GET /api/campaigns - Get campaigns",
+    "POST /api/campaigns - Create campaign",
+    "PUT /api/campaigns/:id - Update campaign",
+    "PUT /api/campaigns/:id/status - Update campaign status",
+    "DELETE /api/campaigns/:id - Delete campaign",
+    "GET /api/templates - Get templates",
+    "POST /api/templates - Create template",
+    "PUT /api/templates/:id - Update template",
+    "DELETE /api/templates/:id - Delete template",
+    "GET /api/media - Get media files",
+    "POST /api/media - Upload media",
+    "DELETE /api/media/:id - Delete media",
+    "GET /api/bounces - Get bounces",
+    "DELETE /api/bounces/:id - Delete bounce",
+    "POST /api/tx - Send transactional email",
+    "POST /api/import/subscribers - Import subscribers",
+    "GET /api/users - Get users",
+    "POST /api/users - Create user",
+    "PUT /api/settings - Update settings",
+    "GET /api/dashboard/charts - Get dashboard charts",
+    "GET /api/dashboard/counts - Get dashboard counts"
+  ]
+}
