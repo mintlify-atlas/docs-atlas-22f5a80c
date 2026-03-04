@@ -1,0 +1,324 @@
+---
+title: Bounce Handling
+description: Configure and manage email bounces in listmonk
+---
+
+listmonk provides comprehensive bounce handling to automatically manage failed email deliveries and protect your sender reputation.
+
+## Bounce Types
+
+listmonk tracks three types of bounces defined in the database schema:
+
+- **Hard bounces** - Permanent delivery failures (invalid email address, domain doesn't exist)
+- **Soft bounces** - Temporary delivery failures (mailbox full, server temporarily unavailable)
+- **Complaints** - Spam complaints or abuse reports from recipients
+
+These bounce types are defined in `schema.sql:9`:
+
+```sql
+DROP TYPE IF EXISTS bounce_type CASCADE; 
+CREATE TYPE bounce_type AS ENUM ('soft', 'hard', 'complaint');
+```
+
+## Bounce Webhook Endpoints
+
+listmonk provides webhook endpoints to receive bounce notifications from various email service providers.
+
+### Webhook URLs
+
+<Info>
+Bounce webhooks must be enabled in settings with `bounce.webhooks_enabled = true`.
+</Info>
+
+The webhook endpoints are available at:
+
+- **Public webhooks**: `/webhooks/service/:service`
+- **Authenticated webhook**: `/webhooks/bounce` (requires authentication)
+
+Supported services: `ses`, `sendgrid`, `postmark`, `forwardemail`
+
+## Amazon SES Bounce Handling
+
+SES uses Amazon SNS (Simple Notification Service) to send bounce notifications.
+
+<Steps>
+  <Step title="Enable SES bounces in settings">
+    Set `bounce.ses_enabled = true` in your configuration
+  </Step>
+  
+  <Step title="Create SNS topic">
+    Create an SNS topic in your AWS console for bounce notifications
+  </Step>
+  
+  <Step title="Subscribe listmonk webhook">
+    Subscribe your listmonk webhook URL to the SNS topic:
+    
+    ```
+    https://your-listmonk.com/webhooks/service/ses
+    ```
+  </Step>
+  
+  <Step title="Confirm subscription">
+    listmonk will automatically confirm the SNS subscription when it receives the confirmation request (handled in `cmd/bounce.go:156-163`)
+  </Step>
+  
+  <Step title="Configure SES">
+    Configure your SES domain or email to publish bounce and complaint notifications to the SNS topic
+  </Step>
+</Steps>
+
+### SES Bounce Processing
+
+SES bounce notifications are processed in `internal/bounce/webhooks/ses.go:107-173`:
+
+- Verifies SNS signature for security
+- Parses bounce type (Permanent → hard, Transient → soft)
+- Extracts campaign UUID from email headers
+- Special handling: Invalid domain bounces (status 5.4.4) are treated as hard bounces
+- Complaints are classified as `complaint` type
+
+## SendGrid Webhook Configuration
+
+<Steps>
+  <Step title="Enable SendGrid bounces">
+    Set `bounce.sendgrid_enabled = true` and configure your SendGrid verification key:
+    
+    ```toml
+    [settings]
+    bounce.sendgrid_enabled = true
+    bounce.sendgrid_key = "your-sendgrid-verification-key"
+    ```
+  </Step>
+  
+  <Step title="Configure SendGrid webhook">
+    In SendGrid settings, add the webhook URL:
+    
+    ```
+    https://your-listmonk.com/webhooks/service/sendgrid
+    ```
+  </Step>
+  
+  <Step title="Select event types">
+    Enable the "Bounce" event type in SendGrid webhook settings
+  </Step>
+</Steps>
+
+### SendGrid Bounce Processing
+
+SendGrid bounce handling (`internal/bounce/webhooks/sendgrid.go:52-87`):
+
+- Verifies webhook signature using ECDSA
+- Processes multiple bounces in a single webhook call
+- Classifies bounces based on `bounce_classification`:
+  - `technical` or `content` → soft bounce
+  - Other classifications → hard bounce
+- Automatically extracts campaign UUID from custom X-headers
+
+## Postmark Webhook Configuration
+
+<Steps>
+  <Step title="Enable Postmark bounces">
+    Configure Postmark webhook authentication:
+    
+    ```toml
+    [settings]
+    bounce.postmark = '{"enabled": true, "username": "user", "password": "pass"}'
+    ```
+  </Step>
+  
+  <Step title="Add webhook in Postmark">
+    In your Postmark server settings, add:
+    
+    ```
+    https://user:pass@your-listmonk.com/webhooks/service/postmark
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+Postmark webhooks use HTTP basic authentication for security. Configure strong credentials.
+</Warning>
+
+## ForwardEmail Webhook Support
+
+ForwardEmail integration uses webhook signature verification.
+
+<Steps>
+  <Step title="Enable ForwardEmail">
+    Configure your ForwardEmail webhook key:
+    
+    ```toml
+    [settings]
+    bounce.forwardemail = '{"enabled": true, "key": "your-webhook-key"}'
+    ```
+  </Step>
+  
+  <Step title="Configure webhook">
+    Set the webhook URL in ForwardEmail:
+    
+    ```
+    https://your-listmonk.com/webhooks/service/forwardemail
+    ```
+  </Step>
+</Steps>
+
+## Managing Bounces via API
+
+listmonk provides comprehensive API endpoints for bounce management (defined in `cmd/handlers.go:133-137`):
+
+### Get All Bounces
+
+```bash
+GET /api/bounces?campaign_id=1&source=ses&order_by=created_at&order=desc
+```
+
+Query parameters:
+- `campaign_id` - Filter by campaign
+- `source` - Filter by bounce source (ses, sendgrid, postmark, forwardemail)
+- `order_by` - Sort field
+- `order` - Sort direction (asc/desc)
+- `page`, `per_page` - Pagination
+
+### Get Single Bounce
+
+```bash
+GET /api/bounces/:id
+```
+
+### Get Subscriber Bounces
+
+```bash
+GET /api/subscribers/:id/bounces
+```
+
+### Delete Bounces
+
+```bash
+# Delete specific bounces
+DELETE /api/bounces?id=1&id=2&id=3
+
+# Delete all bounces
+DELETE /api/bounces?all=true
+```
+
+### Delete Subscriber Bounces
+
+```bash
+DELETE /api/subscribers/:id/bounces
+```
+
+## Automatic Blocklisting
+
+listmonk can automatically blocklist subscribers based on bounce thresholds configured in settings.
+
+### Bounce Actions Configuration
+
+Default bounce actions from `schema.sql:286`:
+
+```json
+{
+  "soft": {"count": 2, "action": "none"},
+  "hard": {"count": 1, "action": "blocklist"},
+  "complaint": {"count": 1, "action": "blocklist"}
+}
+```
+
+### Blocklist All Bounced Subscribers
+
+Blocklist all subscribers who have bounces:
+
+```bash
+PUT /api/bounces/blocklist
+```
+
+This endpoint is handled in `cmd/bounce.go:108-114`.
+
+<Warning>
+This action is irreversible. Blocklisted subscribers cannot receive emails until manually removed from the blocklist.
+</Warning>
+
+## POP3 Mailbox Bounce Scanning
+
+listmonk can scan a dedicated bounce mailbox using POP3 protocol.
+
+### Configuration
+
+Configure in settings (`schema.sql:292-293`):
+
+```json
+[
+  {
+    "enabled": false,
+    "type": "pop",
+    "host": "pop.yoursite.com",
+    "port": 995,
+    "auth_protocol": "userpass",
+    "username": "bounce@listmonk.yoursite.com",
+    "password": "password",
+    "return_path": "bounce@listmonk.yoursite.com",
+    "scan_interval": "15m",
+    "tls_enabled": true,
+    "tls_skip_verify": false
+  }
+]
+```
+
+### How It Works
+
+The bounce manager (`internal/bounce/bounce.go:109-135`):
+
+1. Scans the mailbox at the configured interval
+2. Parses bounce emails for delivery failure information
+3. Extracts subscriber email from bounce message
+4. Records bounce in database
+5. Deletes processed messages from mailbox
+
+<Info>
+The return_path address should be configured in your SMTP settings to receive bounce messages.
+</Info>
+
+## Bounce Database Schema
+
+Bounces are stored in the `bounces` table (`schema.sql:300-314`):
+
+```sql
+CREATE TABLE bounces (
+    id               SERIAL PRIMARY KEY,
+    subscriber_id    INTEGER NOT NULL REFERENCES subscribers(id),
+    campaign_id      INTEGER NULL REFERENCES campaigns(id),
+    type             bounce_type NOT NULL DEFAULT 'hard',
+    source           TEXT NOT NULL DEFAULT '',
+    meta             JSONB NOT NULL DEFAULT '{}',
+    created_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+Indexes for performance:
+- `idx_bounces_sub_id` - Fast subscriber bounce lookups
+- `idx_bounces_camp_id` - Campaign bounce analysis
+- `idx_bounces_source` - Filter by bounce source
+- `idx_bounces_date` - Date-based queries
+
+## Best Practices
+
+<Steps>
+  <Step title="Configure bounce handling early">
+    Set up bounce webhooks before sending campaigns to maintain good sender reputation
+  </Step>
+  
+  <Step title="Use appropriate thresholds">
+    Adjust bounce action thresholds based on your email volume and quality
+  </Step>
+  
+  <Step title="Monitor bounce rates">
+    High bounce rates (>5%) indicate list quality issues
+  </Step>
+  
+  <Step title="Regular cleanup">
+    Periodically review and clean old bounce records
+  </Step>
+  
+  <Step title="Test webhooks">
+    Send test emails to invalid addresses to verify webhook configuration
+  </Step>
+</Steps>

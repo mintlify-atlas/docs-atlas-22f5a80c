@@ -1,0 +1,631 @@
+---
+title: Media
+description: Upload, manage, and use media files in campaigns and templates with filesystem or S3 storage
+---
+
+The media manager allows you to upload images and files for use in email campaigns and templates. Media can be stored on the local filesystem or in S3-compatible cloud storage.
+
+## Media Data Model
+
+Each media file has:
+
+- **ID**: Unique numeric identifier
+- **UUID**: Unique universal identifier
+- **Filename**: Sanitized filename
+- **Content Type**: MIME type (e.g., `image/jpeg`, `image/png`)
+- **Provider**: Storage provider (`filesystem` or `s3`)
+- **Thumb**: Thumbnail filename (auto-generated for images)
+- **Meta**: JSONB metadata (width, height for images)
+- **URL**: Full public URL to access the file
+- **Created At**: Upload timestamp
+
+## Uploading Media
+
+<Tabs>
+  <Tab title="Admin Interface">
+    <Steps>
+      <Step title="Navigate to Media">
+        Click **Media** in the main menu
+      </Step>
+      
+      <Step title="Upload File">
+        - Click **Upload** button
+        - Select file(s) from your computer
+        - Multiple files can be uploaded at once
+      </Step>
+      
+      <Step title="Use in Campaigns">
+        - Copy media URL
+        - Insert into campaign content
+        - Or use media picker in visual editor
+      </Step>
+    </Steps>
+  </Tab>
+  
+  <Tab title="API Upload">
+    Upload media via multipart form data:
+    
+    ```bash
+    curl -u 'username:password' -X POST 'http://localhost:9000/api/media' \
+      -F 'file=@/path/to/image.jpg'
+    ```
+    
+    Response:
+    ```json
+    {
+      "data": {
+        "id": 1,
+        "uuid": "9f86d081-8794-4d3a-9c42-2b8c0e85e790",
+        "filename": "image.jpg",
+        "content_type": "image/jpeg",
+        "provider": "filesystem",
+        "url": "http://localhost:9000/uploads/image.jpg",
+        "thumb_url": "http://localhost:9000/uploads/thumb_image.jpg",
+        "meta": {
+          "width": 1920,
+          "height": 1080
+        },
+        "created_at": "2024-03-04T10:30:00Z"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Supported File Types
+
+Configure allowed extensions in Settings → Upload:
+
+### Default Extensions
+
+```json
+["jpg", "jpeg", "png", "gif", "svg", "*"]
+```
+
+- `jpg`, `jpeg`: JPEG images (thumbnail generated)
+- `png`: PNG images (thumbnail generated)
+- `gif`: GIF images (thumbnail generated)
+- `svg`: Vector graphics (no thumbnail, uses original)
+- `*`: Wildcard to allow all file types
+
+<Note>
+  Remove `*` from the list to restrict uploads to specific extensions only
+</Note>
+
+### File Size Limits
+
+Configure maximum file size in Settings → Upload → Max File Size:
+
+- Default: `5000` KB (5 MB)
+- Enforced during upload
+- Returns error if exceeded
+
+## Image Processing
+
+Images are automatically processed during upload:
+
+### Thumbnail Generation
+
+<Steps>
+  <Step title="Image Validation">
+    Uploaded file is validated as a valid image format
+  </Step>
+  
+  <Step title="Dimension Detection">
+    Original image width and height are detected
+  </Step>
+  
+  <Step title="Thumbnail Creation">
+    Thumbnail is generated:
+    - Max width: 250px
+    - Height: Proportional (maintains aspect ratio)
+    - Format: PNG
+    - Algorithm: Lanczos resampling
+  </Step>
+  
+  <Step title="Storage">
+    Both original and thumbnail are saved:
+    - Original: `filename.jpg`
+    - Thumbnail: `thumb_filename.jpg`
+  </Step>
+</Steps>
+
+### Image Metadata
+
+Image files include metadata:
+
+```json
+{
+  "width": 1920,
+  "height": 1080
+}
+```
+
+Stored in the `meta` JSONB field for quick access without reading the file.
+
+### Vector Graphics (SVG)
+
+SVG files are handled specially:
+- No thumbnail generation
+- Thumbnail URL points to original file
+- No dimension metadata
+- Served as-is
+
+## Storage Providers
+
+<Tabs>
+  <Tab title="Filesystem">
+    ### Local Filesystem Storage
+    
+    Store media files on the server's local filesystem.
+    
+    **Configuration:**
+    
+    Settings → Upload → Provider: `filesystem`
+    
+    ```json
+    {
+      "upload.provider": "filesystem",
+      "upload.filesystem.upload_path": "uploads",
+      "upload.filesystem.upload_uri": "/uploads"
+    }
+    ```
+    
+    **Settings:**
+    - **Upload Path**: Directory to store files (relative or absolute)
+    - **Upload URI**: Public URL path to access files
+    
+    **File URLs:**
+    ```
+    http://localhost:9000/uploads/image.jpg
+    http://localhost:9000/uploads/thumb_image.jpg
+    ```
+    
+    **Pros:**
+    - Simple setup
+    - No external dependencies
+    - Fast local access
+    - No additional costs
+    
+    **Cons:**
+    - Not scalable for distributed systems
+    - Requires disk space on server
+    - No built-in CDN
+    - Backups needed
+  </Tab>
+  
+  <Tab title="S3">
+    ### S3-Compatible Storage
+    
+    Store media in Amazon S3 or compatible services (DigitalOcean Spaces, MinIO, etc.).
+    
+    **Configuration:**
+    
+    Settings → Upload → Provider: `s3`
+    
+    ```json
+    {
+      "upload.provider": "s3",
+      "upload.s3.url": "https://s3.amazonaws.com",
+      "upload.s3.public_url": "https://cdn.example.com",
+      "upload.s3.aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
+      "upload.s3.aws_secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+      "upload.s3.aws_default_region": "us-east-1",
+      "upload.s3.bucket": "listmonk-media",
+      "upload.s3.bucket_path": "/",
+      "upload.s3.bucket_type": "public",
+      "upload.s3.expiry": "167h"
+    }
+    ```
+    
+    **Settings:**
+    - **URL**: S3 endpoint URL
+    - **Public URL**: CDN or custom domain (optional)
+    - **Access Key ID**: AWS access key
+    - **Secret Access Key**: AWS secret key
+    - **Region**: AWS region (e.g., `us-east-1`, `ap-south-1`)
+    - **Bucket**: S3 bucket name
+    - **Bucket Path**: Prefix for all files (e.g., `/media`)
+    - **Bucket Type**: `public` or `private`
+    - **Expiry**: Signed URL expiry for private buckets (e.g., `167h`)
+    
+    **Bucket Types:**
+    
+    <CardGroup cols={2}>
+      <Card title="Public Bucket" icon="globe">
+        Files are publicly accessible via direct URLs
+        
+        - No signed URLs needed
+        - Faster access
+        - Can use CDN
+        - Suitable for email images
+      </Card>
+      
+      <Card title="Private Bucket" icon="lock">
+        Files require signed URLs for access
+        
+        - Time-limited access
+        - More secure
+        - URLs expire after `expiry` duration
+        - Longer URLs
+      </Card>
+    </CardGroup>
+    
+    **Compatible Services:**
+    - Amazon S3
+    - DigitalOcean Spaces
+    - MinIO
+    - Wasabi
+    - Backblaze B2
+    - Cloudflare R2
+    
+    **Pros:**
+    - Scalable and distributed
+    - CDN integration
+    - High availability
+    - Automatic backups
+    - Global edge locations
+    
+    **Cons:**
+    - Requires configuration
+    - Additional costs
+    - Network latency
+    - External dependency
+  </Tab>
+</Tabs>
+
+## Using Media in Campaigns
+
+### In HTML Content
+
+Insert media URLs directly into HTML:
+
+```html
+<img src="http://localhost:9000/uploads/image.jpg" alt="Description">
+```
+
+### In Templates
+
+Embed media in templates:
+
+```html
+<div class="header">
+  <img src="http://localhost:9000/uploads/logo.png" alt="Logo" width="200">
+</div>
+
+<div class="content">
+  {{ template "content" . }}
+</div>
+```
+
+### In Rich Text Editor
+
+Use the image insertion tool:
+1. Click image icon in toolbar
+2. Select from uploaded media
+3. Or paste URL directly
+
+### Attaching to Campaigns
+
+Attach media to campaigns for tracking:
+
+```json
+{
+  "name": "Newsletter",
+  "subject": "Latest Updates",
+  "media": [1, 2, 3]
+}
+```
+
+Attached media is tracked in `campaign_media` table for analytics.
+
+## Managing Media
+
+### Viewing Media
+
+List all uploaded media:
+
+```bash
+curl -u 'username:password' 'http://localhost:9000/api/media'
+```
+
+With pagination and search:
+
+```bash
+curl -u 'username:password' 'http://localhost:9000/api/media?query=logo&page=1&per_page=20'
+```
+
+### Searching Media
+
+Search by filename:
+- Use the search box in admin interface
+- Or `?query=` parameter in API
+- Searches `filename` field
+
+### Deleting Media
+
+<Warning>
+  Deleting media removes files from storage and database. URLs in sent campaigns will break.
+</Warning>
+
+<Steps>
+  <Step title="Delete from Admin">
+    Select media item and click Delete button
+  </Step>
+  
+  <Step title="Confirm Deletion">
+    System confirms deletion intent
+  </Step>
+  
+  <Step title="Files Removed">
+    Both original and thumbnail are deleted from storage
+  </Step>
+  
+  <Step title="Database Updated">
+    Media record removed from database
+    Campaign-media relationships preserved with filename
+  </Step>
+</Steps>
+
+API deletion:
+
+```bash
+curl -u 'username:password' -X DELETE 'http://localhost:9000/api/media/1'
+```
+
+## Filename Handling
+
+### Sanitization
+
+Filenames are automatically sanitized during upload:
+
+- Non-ASCII characters removed
+- Spaces converted to underscores
+- Special characters stripped
+- Extension preserved
+
+**Example:**
+```
+Original: "My Photo (2024).jpg"
+Sanitized: "my_photo_2024.jpg"
+```
+
+### Duplicate Handling
+
+If a filename already exists:
+
+1. Check database for existing filename
+2. Generate random 6-character suffix
+3. Append to filename before extension
+
+**Example:**
+```
+Original upload: image.jpg
+Duplicate upload: image_a3f9k2.jpg
+```
+
+## Serving S3 Media
+
+For S3 storage with relative public URLs:
+
+### Direct S3 URLs
+
+If `public_url` is set to full domain:
+```
+https://cdn.example.com/image.jpg
+```
+
+### Proxied URLs
+
+If `public_url` is relative path:
+```
+/s3/image.jpg
+```
+
+listmonk proxies requests:
+1. Request to `/s3/image.jpg`
+2. Fetched from S3
+3. Served through listmonk
+4. Content-Type auto-detected
+
+<Note>
+  Proxying adds latency. Use CDN with full URLs for better performance.
+</Note>
+
+## Database Schema
+
+```sql
+CREATE TABLE media (
+    id               SERIAL PRIMARY KEY,
+    uuid             UUID NOT NULL UNIQUE,
+    provider         TEXT NOT NULL DEFAULT '',
+    filename         TEXT NOT NULL,
+    content_type     TEXT NOT NULL DEFAULT 'application/octet-stream',
+    thumb            TEXT NOT NULL,
+    meta             JSONB NOT NULL DEFAULT '{}',
+    created_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_media_filename ON media(provider, filename);
+```
+
+### Campaign-Media Relationship
+
+```sql
+CREATE TABLE campaign_media (
+    campaign_id  INTEGER REFERENCES campaigns(id) ON DELETE CASCADE,
+    media_id     INTEGER NULL REFERENCES media(id) ON DELETE SET NULL,
+    filename     TEXT NOT NULL DEFAULT ''
+);
+```
+
+- Links campaigns to attached media
+- Preserves filename even if media is deleted
+- Used for tracking media usage
+
+## Performance Considerations
+
+### Thumbnails
+
+<CardGroup cols={2}>
+  <Card title="Faster Loading" icon="gauge-high">
+    Thumbnails load quickly in admin interface and media picker
+  </Card>
+  
+  <Card title="Reduced Bandwidth" icon="signal">
+    Smaller file sizes for preview purposes
+  </Card>
+  
+  <Card title="Better UX" icon="smile">
+    Instant preview without loading full images
+  </Card>
+  
+  <Card title="Consistent Size" icon="expand">
+    Uniform thumbnail dimensions for clean layouts
+  </Card>
+</CardGroup>
+
+### CDN Integration
+
+For S3 storage, use CDN for optimal performance:
+
+1. Set up CloudFront, Cloudflare, or similar
+2. Point CDN to S3 bucket
+3. Set `upload.s3.public_url` to CDN domain
+4. Media URLs will use CDN automatically
+
+**Example:**
+```json
+{
+  "upload.s3.public_url": "https://cdn.example.com"
+}
+```
+
+Results in URLs like:
+```
+https://cdn.example.com/image.jpg
+```
+
+## Security
+
+### Extension Filtering
+
+Restrict file types to prevent malicious uploads:
+
+```json
+{
+  "upload.extensions": ["jpg", "jpeg", "png", "gif", "svg"]
+}
+```
+
+<Warning>
+  Using `*` wildcard allows any file type. Only enable if you trust all uploaders.
+</Warning>
+
+### Content Type Validation
+
+Content-Type header is validated during upload:
+- Checked against file extension
+- Stored in database
+- Used when serving files
+
+### File Size Limits
+
+Enforce size limits to prevent abuse:
+- Configured in `upload.max_file_size` (KB)
+- Default: 5 MB
+- Rejected before processing
+
+## Troubleshooting
+
+### Upload Fails
+
+<Steps>
+  <Step title="Check File Size">
+    Ensure file is under max_file_size limit
+  </Step>
+  
+  <Step title="Verify Extension">
+    Check if file extension is in allowed list
+  </Step>
+  
+  <Step title="Test Storage">
+    - Filesystem: Check directory permissions
+    - S3: Verify credentials and bucket access
+  </Step>
+  
+  <Step title="Review Logs">
+    Check listmonk logs for specific error messages
+  </Step>
+</Steps>
+
+### Broken Image URLs
+
+- Verify media still exists in database
+- Check storage provider is accessible
+- For S3: Ensure bucket permissions are correct
+- For filesystem: Verify `upload_uri` matches web server config
+
+### Thumbnails Not Generating
+
+- Only applies to: JPG, PNG, GIF
+- SVG files use original as thumbnail
+- Check image file is valid format
+- Review upload logs for resize errors
+
+## API Reference
+
+### Upload Media
+
+```http
+POST /api/media
+Content-Type: multipart/form-data
+
+file=@image.jpg
+```
+
+### Get All Media
+
+```http
+GET /api/media?query=search&page=1&per_page=20
+```
+
+### Get Single Media
+
+```http
+GET /api/media/:id
+```
+
+### Delete Media
+
+```http
+DELETE /api/media/:id
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Optimize Images" icon="image">
+    Compress images before upload to reduce file sizes and email load times
+  </Card>
+  
+  <Card title="Use CDN" icon="network-wired">
+    For S3 storage, integrate a CDN for faster global delivery
+  </Card>
+  
+  <Card title="Descriptive Names" icon="tag">
+    Use clear, descriptive filenames for easy identification
+  </Card>
+  
+  <Card title="Regular Cleanup" icon="broom">
+    Periodically remove unused media to save storage space
+  </Card>
+  
+  <Card title="Backup Media" icon="database">
+    Ensure media files are included in backup strategy
+  </Card>
+  
+  <Card title="Restrict Extensions" icon="shield">
+    Limit allowed file types to only what's needed
+  </Card>
+</CardGroup>

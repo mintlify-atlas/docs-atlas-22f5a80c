@@ -1,0 +1,395 @@
+---
+title: 'Import API'
+description: 'Bulk import subscribers from CSV files'
+---
+
+## Start import
+
+<CodeGroup>
+```bash POST /api/import/subscribers
+curl -u 'username:password' 'https://listmonk.mysite.com/api/import/subscribers' \
+  -F 'file=@subscribers.csv' \
+  -F 'params={
+    "mode": "subscribe",
+    "delim": ",",
+    "lists": [1, 2],
+    "overwrite": true,
+    "subscription_status": "confirmed"
+  }'
+```
+</CodeGroup>
+
+Starts a bulk subscriber import from a CSV or ZIP file.
+
+**Authentication:** Required  
+**Permission:** `subscribers:import`
+
+### Request Body
+
+<ParamField body="file" type="file" required>
+  CSV or ZIP file containing subscriber data (multipart/form-data)
+</ParamField>
+
+<ParamField body="params" type="string" required>
+  JSON string with import parameters
+</ParamField>
+
+### Import Parameters (params)
+
+<ParamField body="mode" type="string" required>
+  Import mode:
+  - `subscribe`: Import and subscribe to lists
+  - `blocklist`: Import and blocklist subscribers
+</ParamField>
+
+<ParamField body="lists" type="array" required>
+  Array of list IDs to subscribe/manage (filtered by user permissions)
+</ParamField>
+
+<ParamField body="subscription_status" type="string">
+  Status for new subscriptions:
+  - `unconfirmed`: Requires opt-in confirmation
+  - `confirmed`: Active subscription
+  - `unsubscribed`: Unsubscribed status
+  
+  Defaults: `unconfirmed` for subscribe mode, `unsubscribed` for blocklist mode
+</ParamField>
+
+<ParamField body="delim" type="string" default=",">
+  CSV delimiter character (must be a single character)
+</ParamField>
+
+<ParamField body="overwrite" type="boolean" default="false">
+  If true, updates existing subscribers with imported data
+</ParamField>
+
+### CSV Format
+
+The CSV file must have a header row with the following columns:
+
+**Required columns:**
+- `email`: Email address (required)
+
+**Optional columns:**
+- `name`: Subscriber name
+- `status`: Subscriber status (`enabled`, `disabled`, `blocklisted`)
+- `attributes`: JSON object with custom attributes
+
+**Example CSV:**
+```csv
+email,name,status,attributes
+john@example.com,John Doe,enabled,"{""city"": ""Bangalore"", ""age"": 30}"
+j ane@example.com,Jane Smith,enabled,"{""city"": ""New York""}"
+bob@example.com,Bob Johnson,enabled,
+```
+
+### Response
+
+<ResponseField name="data" type="object">
+  Returns the import status object
+  <Expandable title="properties">
+    <ResponseField name="status" type="string">
+      Import status: `importing`, `finished`, `failed`
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Filename
+    </ResponseField>
+    <ResponseField name="total" type="integer">
+      Total records to import
+    </ResponseField>
+    <ResponseField name="imported" type="integer">
+      Number imported so far
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Get import status
+
+<CodeGroup>
+```bash GET /api/import/subscribers
+curl -u 'username:password' 'https://listmonk.mysite.com/api/import/subscribers'
+```
+</CodeGroup>
+
+Retrieves the status of the current or last import.
+
+**Authentication:** Required  
+**Permission:** `subscribers:import`
+
+### Response
+
+<ResponseField name="data" type="object">
+  <Expandable title="properties">
+    <ResponseField name="status" type="string">
+      Import status:
+      - `none`: No import has been run
+      - `importing`: Import in progress
+      - `stopping`: Import is being stopped
+      - `finished`: Import completed successfully
+      - `failed`: Import failed with errors
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Filename being imported
+    </ResponseField>
+    <ResponseField name="total" type="integer">
+      Total records to import
+    </ResponseField>
+    <ResponseField name="imported" type="integer">
+      Number of records imported
+    </ResponseField>
+    <ResponseField name="started_at" type="string">
+      Import start timestamp
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Get import logs
+
+<CodeGroup>
+```bash GET /api/import/subscribers/logs
+curl -u 'username:password' 'https://listmonk.mysite.com/api/import/subscribers/logs'
+```
+</CodeGroup>
+
+Retrieves detailed logs from the current or last import.
+
+**Authentication:** Required  
+**Permission:** `subscribers:import`
+
+### Response
+
+<ResponseField name="data" type="string">
+  Returns import log messages as plain text
+</ResponseField>
+
+---
+
+## Stop import
+
+<CodeGroup>
+```bash DELETE /api/import/subscribers
+curl -u 'username:password' -X DELETE 'https://listmonk.mysite.com/api/import/subscribers'
+```
+</CodeGroup>
+
+Stops an ongoing import or clears the state of a finished import.
+
+**Authentication:** Required  
+**Permission:** `subscribers:import`
+
+### Response
+
+<ResponseField name="data" type="object">
+  Returns the updated import status
+</ResponseField>
+
+---
+
+## Import Examples
+
+### Subscribe Mode
+
+Import subscribers and add them to lists:
+
+```bash
+curl -u 'username:password' 'https://listmonk.mysite.com/api/import/subscribers' \
+  -F 'file=@new-subscribers.csv' \
+  -F 'params={
+    "mode": "subscribe",
+    "lists": [1, 2],
+    "subscription_status": "confirmed",
+    "delim": ",",
+    "overwrite": false
+  }'
+```
+
+**CSV:**
+```csv
+email,name,attributes
+john@example.com,John Doe,"{""source"": ""webinar""}"
+jane@example.com,Jane Smith,"{""source"": ""webinar""}"
+```
+
+### Blocklist Mode
+
+Import and blocklist email addresses:
+
+```bash
+curl -u 'username:password' 'https://listmonk.mysite.com/api/import/subscribers' \
+  -F 'file=@blocklist.csv' \
+  -F 'params={
+    "mode": "blocklist",
+    "lists": [],
+    "delim": ","
+  }'
+```
+
+**CSV:**
+```csv
+email
+spammer@example.com
+abuse@example.com
+```
+
+### Update Existing Subscribers
+
+Update subscriber data with overwrite:
+
+```bash
+curl -u 'username:password' 'https://listmonk.mysite.com/api/import/subscribers' \
+  -F 'file=@updates.csv' \
+  -F 'params={
+    "mode": "subscribe",
+    "lists": [1],
+    "overwrite": true,
+    "delim": ","
+  }'
+```
+
+**CSV:**
+```csv
+email,name,attributes
+john@example.com,John Doe Updated,"{""city"": ""San Francisco""}"
+```
+
+### Import from ZIP
+
+Import multiple CSV files from a ZIP archive:
+
+```bash
+curl -u 'username:password' 'https://listmonk.mysite.com/api/import/subscribers' \
+  -F 'file=@subscribers.zip' \
+  -F 'params={
+    "mode": "subscribe",
+    "lists": [1],
+    "delim": ","
+  }'
+```
+
+<Note>
+  When importing from ZIP, only the first CSV file in the archive is processed.
+</Note>
+
+---
+
+## Monitoring Import Progress
+
+Poll the import status endpoint to monitor progress:
+
+```bash
+#!/bin/bash
+
+while true; do
+  STATUS=$(curl -s -u 'username:password' \
+    'https://listmonk.mysite.com/api/import/subscribers' | \
+    jq -r '.data.status')
+  
+  echo "Import status: $STATUS"
+  
+  if [ "$STATUS" = "finished" ] || [ "$STATUS" = "failed" ]; then
+    break
+  fi
+  
+  sleep 2
+done
+
+echo "Import complete!"
+```
+
+---
+
+## Import Behavior
+
+### New Subscribers
+
+- Creates new subscriber records
+- Subscribes to specified lists
+- Sets the specified subscription status
+
+### Existing Subscribers
+
+**Without overwrite (`overwrite: false`):**
+- Skips existing subscribers
+- Logs as "already exists"
+
+**With overwrite (`overwrite: true`):**
+- Updates name if provided
+- Updates attributes (merges with existing)
+- Updates status if provided
+- Adds to new lists without removing from existing lists
+
+### Attributes Handling
+
+Attributes in CSV must be valid JSON:
+
+```csv
+email,name,attributes
+user@example.com,User,"{""city"": ""NYC"", ""age"": 30}"
+```
+
+When overwriting:
+- New attributes are merged with existing
+- Existing attribute values are updated
+- Attributes not in CSV are preserved
+
+---
+
+## Validation and Errors
+
+### Email Validation
+
+- Email addresses are validated and sanitized
+- Invalid emails are skipped and logged
+- Duplicate emails in the CSV are ignored
+
+### Common Errors
+
+**Invalid file format:**
+```json
+{"message": "invalid file: not a CSV or ZIP"}
+```
+
+**Invalid delimiter:**
+```json
+{"message": "invalid delimiter: must be a single character"}
+```
+
+**Invalid mode:**
+```json
+{"message": "invalid mode: must be 'subscribe' or 'blocklist'"}
+```
+
+**Import already running:**
+```json
+{"message": "an import is already running"}
+```
+
+---
+
+## Performance Considerations
+
+### Batch Size
+
+Imports are processed in batches (default batch size configured by admin). Large imports may take time.
+
+### Concurrent Imports
+
+Only one import can run at a time. Wait for the current import to finish before starting a new one.
+
+### Resource Usage
+
+- Large CSV files are processed line-by-line to minimize memory usage
+- Database writes are batched for efficiency
+- Import progress is persisted and can survive server restarts
+
+### Best Practices
+
+1. **Test with small files first**: Validate CSV format with a small sample
+2. **Clean data**: Remove duplicates and invalid emails before import
+3. **Use compression**: ZIP large CSV files to reduce upload time
+4. **Monitor logs**: Check logs for errors and warnings
+5. **Schedule imports**: Run large imports during off-peak hours

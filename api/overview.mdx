@@ -1,0 +1,245 @@
+---
+title: "API Overview"
+description: "Introduction to the listmonk REST API"
+---
+
+## Introduction
+
+The listmonk API is a RESTful HTTP API that provides programmatic access to all core functionality. It enables you to manage subscribers, lists, campaigns, templates, and more from external applications.
+
+**Base URL**: `http://your-listmonk-instance:9000/api`
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="RESTful Design" icon="code">
+    Standard HTTP methods (GET, POST, PUT, DELETE) for intuitive API interactions
+  </Card>
+  <Card title="JSON Responses" icon="brackets-curly">
+    All responses are in JSON format with consistent structure
+  </Card>
+  <Card title="Role-Based Access" icon="shield">
+    Fine-grained permissions system for secure API access
+  </Card>
+  <Card title="Pagination Support" icon="list">
+    Efficient data retrieval with pagination for large datasets
+  </Card>
+</CardGroup>
+
+## Response Format
+
+All successful API responses follow this structure:
+
+```json
+{
+  "data": {
+    // Response data here
+  }
+}
+```
+
+For list endpoints with pagination:
+
+```json
+{
+  "data": {
+    "results": [...],
+    "total": 150,
+    "per_page": 20,
+    "page": 1
+  }
+}
+```
+
+## Error Handling
+
+Error responses include an HTTP status code and a JSON body with error details:
+
+```json
+{
+  "message": "Error description",
+  "data": null
+}
+```
+
+### Common HTTP Status Codes
+
+| Status Code | Description |
+|------------|-------------|
+| `200` | Success |
+| `201` | Created successfully |
+| `400` | Bad request - invalid parameters |
+| `401` | Unauthorized - authentication required |
+| `403` | Forbidden - insufficient permissions |
+| `404` | Resource not found |
+| `500` | Internal server error |
+
+## Content Types
+
+The API accepts and returns JSON data:
+
+**Request Header**:
+```
+Content-Type: application/json
+```
+
+**For file uploads** (e.g., media, import):
+```
+Content-Type: multipart/form-data
+```
+
+## Pagination
+
+List endpoints support pagination with query parameters:
+
+- `page` - Page number (default: 1)
+- `per_page` - Results per page (default: 20, max: 100)
+
+Example:
+```bash
+GET /api/subscribers?page=2&per_page=50
+```
+
+## Filtering and Searching
+
+Many endpoints support filtering with query parameters:
+
+**Subscribers**:
+- `query` - Search by name or email
+- `list_id` - Filter by list membership
+- `subscription_status` - Filter by status (confirmed, unconfirmed, unsubscribed)
+
+**Lists**:
+- `query` - Search by name
+- `type` - Filter by type (public, private, temporary)
+- `tags` - Filter by tags
+
+**Campaigns**:
+- `query` - Search by name
+- `status` - Filter by status (draft, running, scheduled, paused, cancelled, finished)
+
+Example:
+```bash
+GET /api/subscribers?query=john&list_id=5&subscription_status=confirmed
+```
+
+## Rate Limiting
+
+<Info>
+listmonk does not enforce rate limiting by default, but you should implement rate limiting in your application or reverse proxy to prevent abuse.
+</Info>
+
+Consider implementing:
+- Per-IP rate limits
+- Per-user rate limits
+- Transactional email rate limits based on your SMTP provider's limits
+
+## Health Check
+
+Test API availability with the health endpoint:
+
+```bash curl
+curl http://localhost:9000/api/health
+```
+
+Response:
+```json
+{
+  "data": true
+}
+```
+
+## Quick Start Example
+
+Here's a complete example of creating a subscriber and adding them to a list:
+
+<Steps>
+  <Step title="Authenticate">
+    Obtain your API credentials from the dashboard. See [Authentication](/api/authentication) for details.
+  </Step>
+  
+  <Step title="Create a Subscriber">
+    ```bash
+    curl -u 'username:password' -X POST http://localhost:9000/api/subscribers \
+      -H 'Content-Type: application/json' \
+      -d '{
+        "email": "john@example.com",
+        "name": "John Doe",
+        "status": "enabled",
+        "lists": [1],
+        "preconfirm_subscriptions": true
+      }'
+    ```
+  </Step>
+  
+  <Step title="Verify Creation">
+    ```bash
+    curl -u 'username:password' http://localhost:9000/api/subscribers/1
+    ```
+  </Step>
+</Steps>
+
+## API Resources
+
+<CardGroup cols={2}>
+  <Card title="Subscribers" icon="users" href="/api/subscribers">
+    Manage subscriber data and subscriptions
+  </Card>
+  <Card title="Lists" icon="list" href="/api/lists">
+    Create and manage mailing lists
+  </Card>
+  <Card title="Campaigns" icon="newspaper" href="/api/campaigns">
+    Create, schedule, and manage email campaigns
+  </Card>
+  <Card title="Templates" icon="palette" href="/api/templates">
+    Manage email templates
+  </Card>
+  <Card title="Media" icon="image" href="/api/media">
+    Upload and manage media files
+  </Card>
+  <Card title="Bounces" icon="shield-check" href="/api/bounces">
+    Handle email bounces and complaints
+  </Card>
+  <Card title="Transactional" icon="bolt" href="/api/transactional">
+    Send one-off transactional emails
+  </Card>
+  <Card title="Import" icon="file-import" href="/api/import">
+    Bulk import subscribers
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+<Accordion title="Use Appropriate HTTP Methods">
+  - **GET**: Retrieve data (read-only, no side effects)
+  - **POST**: Create new resources
+  - **PUT**: Update existing resources
+  - **DELETE**: Remove resources
+</Accordion>
+
+<Accordion title="Handle Errors Gracefully">
+  Always check the HTTP status code and parse error messages from the response body. Implement retry logic with exponential backoff for transient errors (5xx codes).
+</Accordion>
+
+<Accordion title="Respect Pagination">
+  When fetching large datasets, use pagination to avoid timeouts and excessive memory usage. Process data in chunks rather than fetching everything at once.
+</Accordion>
+
+<Accordion title="Validate Input">
+  Validate email addresses, ensure required fields are present, and sanitize user input before sending to the API.
+</Accordion>
+
+<Accordion title="Secure Your API Keys">
+  Store credentials securely using environment variables or secrets management systems. Never commit API keys to version control.
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api/authentication">
+    Learn how to authenticate your API requests
+  </Card>
+  <Card title="Subscriber API" icon="user" href="/api/subscribers">
+    Start managing subscribers programmatically
+  </Card>
+</CardGroup>

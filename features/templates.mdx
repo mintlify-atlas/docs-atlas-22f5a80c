@@ -1,0 +1,570 @@
+---
+title: Templates
+description: Create and manage email templates with Go template syntax and Sprig functions
+---
+
+Templates wrap campaign content and provide consistent branding, layout, and functionality across all your emails.
+
+## Template System Overview
+
+listmonk uses Go's `html/template` package with extended functionality from the [Sprig template library](http://masterminds.github.io/sprig/). Templates are compiled and cached for performance.
+
+### How Templates Work
+
+<Steps>
+  <Step title="Template Structure">
+    Templates contain HTML with a special placeholder where campaign content is injected:
+    
+    ```html
+    {{ template "content" . }}
+    ```
+  </Step>
+  
+  <Step title="Content Injection">
+    Campaign body is rendered into the `content` template block
+  </Step>
+  
+  <Step title="Variable Processing">
+    Template functions and variables are evaluated during rendering
+  </Step>
+  
+  <Step title="Final Output">
+    Complete HTML email is generated and sent
+  </Step>
+</Steps>
+
+## Template Types
+
+<Tabs>
+  <Tab title="Campaign">
+    ### Campaign Templates
+    
+    Standard templates for email campaigns.
+    
+    **Characteristics:**
+    - Must contain `{{ template "content" . }}` placeholder
+    - Subject is defined per campaign, not in template
+    - Access to campaign and subscriber variables
+    - Can be set as default
+    
+    **Example:**
+    ```html
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; }
+          .container { max-width: 600px; margin: 0 auto; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>{{ .Campaign.Name }}</h1>
+          {{ template "content" . }}
+          <hr>
+          <p><a href="{{ UnsubscribeURL }}">Unsubscribe</a></p>
+        </div>
+      </body>
+    </html>
+    ```
+  </Tab>
+  
+  <Tab title="Campaign Visual">
+    ### Campaign Visual Templates
+    
+    Templates for visual/block editor campaigns.
+    
+    **Characteristics:**
+    - Similar to campaign templates
+    - Must contain `{{ template "content" . }}` placeholder
+    - Optimized for visual editor output
+    - Structured block content
+    
+    **Use cases:**
+    - Drag-and-drop editor templates
+    - Block-based designs
+    - Structured content layouts
+  </Tab>
+  
+  <Tab title="Transactional">
+    ### Transactional Templates
+    
+    Fixed templates for transactional emails sent via API.
+    
+    **Characteristics:**
+    - Subject defined in template (required)
+    - No `{{ template "content" . }}` placeholder needed
+    - Cached in memory for performance
+    - Sent via `/api/tx` endpoint
+    
+    **Example:**
+    ```html
+    <!DOCTYPE html>
+    <html>
+      <body>
+        <h1>Password Reset</h1>
+        <p>Hello {{ .Subscriber.Name }},</p>
+        <p>Click here to reset: <a href="{{ .Data.ResetURL }}">Reset</a></p>
+      </body>
+    </html>
+    ```
+    
+    <Note>
+      Transactional templates are automatically cached when created or updated
+    </Note>
+  </Tab>
+</Tabs>
+
+## Creating Templates
+
+<Steps>
+  <Step title="Navigate to Templates">
+    Go to **Settings** → **Templates** in the admin interface
+  </Step>
+  
+  <Step title="Create New Template">
+    Click **New** and configure:
+    
+    - **Name**: Descriptive template name (1-500 characters)
+    - **Type**: Choose template type
+    - **Subject**: Required for transactional templates only
+    - **Body**: HTML template code
+  </Step>
+  
+  <Step title="Add Content Placeholder">
+    For campaign templates, include:
+    ```html
+    {{ template "content" . }}
+    ```
+  </Step>
+  
+  <Step title="Test and Save">
+    Use the preview function to test rendering
+  </Step>
+</Steps>
+
+<Warning>
+  Campaign and campaign_visual templates MUST include `{{ template "content" . }}` or creation will fail
+</Warning>
+
+## Template Variables
+
+### Available Data
+
+Templates have access to multiple data contexts:
+
+```go
+type TemplateData struct {
+    Subscriber models.Subscriber  // Subscriber information
+    Campaign   models.Campaign    // Campaign details
+    Lists      []models.List      // Subscriber's lists
+    Data       map[string]any     // Custom data (tx emails)
+}
+```
+
+### Subscriber Variables
+
+```html
+<!-- Basic fields -->
+{{ .Subscriber.Email }}
+{{ .Subscriber.Name }}
+{{ .Subscriber.UUID }}
+{{ .Subscriber.Status }}
+
+<!-- Custom attributes -->
+{{ .Subscriber.Attribs.city }}
+{{ .Subscriber.Attribs.plan }}
+{{ .Subscriber.Attribs.company }}
+
+<!-- Nested attributes -->
+{{ .Subscriber.Attribs.preferences.newsletter }}
+{{ index .Subscriber.Attribs "custom-field" }}
+```
+
+### Campaign Variables
+
+```html
+{{ .Campaign.Name }}
+{{ .Campaign.Subject }}
+{{ .Campaign.FromEmail }}
+{{ .Campaign.UUID }}
+{{ .Campaign.SendAt }}
+```
+
+### List Variables
+
+```html
+<!-- Loop through subscriber's lists -->
+<ul>
+{{ range .Lists }}
+  <li>{{ .Name }}</li>
+{{ end }}
+</ul>
+
+<!-- Check list count -->
+{{ if gt (len .Lists) 0 }}
+  <p>You're subscribed to {{ len .Lists }} lists</p>
+{{ end }}
+```
+
+## Template Functions
+
+listmonk provides built-in functions plus all [Sprig functions](http://masterminds.github.io/sprig/).
+
+### Tracking Functions
+
+```html
+<!-- Track campaign opens -->
+{{ TrackView }}
+
+<!-- Track link clicks -->
+<a href="{{ TrackLink "https://example.com" }}">Visit Site</a>
+<a href="{{ TrackLink .Data.custom_url }}">Dynamic URL</a>
+```
+
+### URL Functions
+
+```html
+<!-- Unsubscribe URL -->
+<a href="{{ UnsubscribeURL }}">Unsubscribe</a>
+
+<!-- Manage preferences URL -->
+<a href="{{ ManageURL }}">Update Preferences</a>
+
+<!-- Opt-in confirmation URL -->
+<a href="{{ OptinURL }}">Confirm Subscription</a>
+
+<!-- Archive URL (campaign must have archive enabled) -->
+<a href="{{ ArchiveURL }}">View in Browser</a>
+```
+
+### Sprig Functions
+
+Full access to [Sprig function library](http://masterminds.github.io/sprig/):
+
+#### String Functions
+
+```html
+<!-- Case conversion -->
+{{ .Subscriber.Name | upper }}
+{{ .Subscriber.Name | lower }}
+{{ .Subscriber.Name | title }}
+
+<!-- Truncate -->
+{{ .Campaign.Body | trunc 100 }}
+
+<!-- Replace -->
+{{ .Subscriber.Email | replace "@" " at " }}
+
+<!-- Contains -->
+{{ if contains "premium" .Subscriber.Attribs.plan }}
+  <p>Premium features:</p>
+{{ end }}
+```
+
+#### Date Functions
+
+```html
+<!-- Format dates -->
+{{ .Campaign.SendAt | date "2006-01-02" }}
+{{ now | date "January 2, 2006" }}
+{{ .Subscriber.CreatedAt | dateInZone "2006-01-02 15:04:05" "America/New_York" }}
+
+<!-- Date arithmetic -->
+{{ now | dateModify "+24h" | date "2006-01-02" }}
+```
+
+#### Conditionals
+
+```html
+<!-- Equality -->
+{{ if eq .Subscriber.Attribs.plan "premium" }}
+  <p>Premium content</p>
+{{ else }}
+  <p>Standard content</p>
+{{ end }}
+
+<!-- Comparisons -->
+{{ if gt .Subscriber.Attribs.age 18 }}
+  <p>Adult content</p>
+{{ end }}
+
+<!-- Multiple conditions -->
+{{ if and (eq .Subscriber.Status "enabled") (ne .Subscriber.Attribs.plan "free") }}
+  <p>Paid subscriber</p>
+{{ end }}
+```
+
+#### List Functions
+
+```html
+<!-- Loop with index -->
+{{ range $i, $list := .Lists }}
+  <p>{{ add $i 1 }}. {{ $list.Name }}</p>
+{{ end }}
+
+<!-- First/Last -->
+{{ (first .Lists).Name }}
+{{ (last .Lists).Name }}
+
+<!-- Has items -->
+{{ if .Lists }}
+  <p>Subscribed to lists</p>
+{{ end }}
+```
+
+#### Default Values
+
+```html
+<!-- Provide fallback -->
+{{ .Subscriber.Name | default "Subscriber" }}
+{{ .Subscriber.Attribs.city | default "Unknown" }}
+```
+
+#### Math Functions
+
+```html
+{{ add 1 2 }}  <!-- 3 -->
+{{ sub 5 2 }}  <!-- 3 -->
+{{ mul 3 4 }}  <!-- 12 -->
+{{ div 10 2 }} <!-- 5 -->
+{{ mod 10 3 }} <!-- 1 -->
+```
+
+## Template Compilation
+
+Templates are compiled when:
+- Created via API or admin interface
+- Updated
+- Campaign is sent
+
+Compilation validates:
+- Syntax correctness
+- Required placeholders present
+- Function availability
+- Variable access patterns
+
+<Note>
+  Compilation errors prevent template creation/update and display specific error messages
+</Note>
+
+## Preview Functionality
+
+Preview templates with dummy data:
+
+### Preview Template Directly
+
+```bash
+curl -u 'username:password' 'http://localhost:9000/api/templates/1/preview'
+```
+
+Uses dummy subscriber:
+```json
+{
+  "email": "demo@listmonk.app",
+  "name": "Demo Subscriber",
+  "uuid": "00000000-0000-0000-0000-000000000000",
+  "attribs": {"city": "Bengaluru"}
+}
+```
+
+### Preview Template Body
+
+Preview template code without saving:
+
+```bash
+curl -u 'username:password' -X POST 'http://localhost:9000/api/templates/preview' \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  -d 'template_type=campaign&body=<html>{{ template "content" . }}</html>'
+```
+
+## Default Templates
+
+Set one template as default:
+
+- Default template is auto-selected when creating new campaigns
+- Only one template can be default at a time
+- Indicated in template list with badge/icon
+
+```sql
+CREATE UNIQUE INDEX ON templates (is_default) WHERE is_default = true;
+```
+
+## Body Source Field
+
+For visual editor templates:
+
+- **body_source**: Stores original editor structure (JSON/XML)
+- **body**: Stores rendered HTML output
+- Allows re-editing in visual editor
+- Source preserved for future edits
+
+## Advanced Examples
+
+### Personalized Greeting
+
+```html
+<p>
+  {{ if .Subscriber.Name }}
+    Hello {{ .Subscriber.Name }},
+  {{ else }}
+    Hello,
+  {{ end }}
+</p>
+```
+
+### Conditional Content by Attribute
+
+```html
+{{ if eq .Subscriber.Attribs.plan "premium" }}
+  <div class="premium-offer">
+    <h2>Exclusive Premium Content</h2>
+    <p>As a premium member, you get early access!</p>
+  </div>
+{{ else if eq .Subscriber.Attribs.plan "basic" }}
+  <div class="upgrade-cta">
+    <h2>Upgrade to Premium</h2>
+    <p>Get access to exclusive features!</p>
+    <a href="{{ TrackLink "https://example.com/upgrade" }}">Upgrade Now</a>
+  </div>
+{{ else }}
+  <div class="signup-cta">
+    <h2>Start Your Free Trial</h2>
+    <a href="{{ TrackLink "https://example.com/signup" }}">Sign Up</a>
+  </div>
+{{ end }}
+```
+
+### Dynamic Unsubscribe Footer
+
+```html
+<footer style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #ccc;">
+  <p style="font-size: 12px; color: #666;">
+    You're receiving this email because you subscribed to:
+    {{ range $i, $list := .Lists }}
+      {{ if $i }}, {{ end }}{{ $list.Name }}
+    {{ end }}
+  </p>
+  <p style="font-size: 12px;">
+    <a href="{{ ManageURL }}">Manage preferences</a> |
+    <a href="{{ UnsubscribeURL }}">Unsubscribe</a> |
+    <a href="{{ ArchiveURL }}">View in browser</a>
+  </p>
+  <p style="font-size: 10px; color: #999;">
+    {{ .Campaign.FromEmail }} | 
+    {{ now | date "2006" }} All rights reserved
+  </p>
+</footer>
+```
+
+### Responsive Email Template
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+    }
+    .header {
+      background-color: #0066cc;
+      color: #ffffff;
+      padding: 20px;
+      text-align: center;
+    }
+    .content {
+      padding: 30px;
+    }
+    .footer {
+      background-color: #f4f4f4;
+      padding: 20px;
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+    }
+    @media only screen and (max-width: 600px) {
+      .content {
+        padding: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>{{ .Campaign.Name }}</h1>
+    </div>
+    <div class="content">
+      {{ template "content" . }}
+    </div>
+    <div class="footer">
+      <p>
+        <a href="{{ ManageURL }}">Preferences</a> |
+        <a href="{{ UnsubscribeURL }}">Unsubscribe</a>
+      </p>
+      <p>&copy; {{ now | date "2006" }} Your Company</p>
+    </div>
+  </div>
+  {{ TrackView }}
+</body>
+</html>
+```
+
+## Database Schema
+
+```sql
+CREATE TABLE templates (
+    id              SERIAL PRIMARY KEY,
+    name            TEXT NOT NULL,
+    type            template_type NOT NULL DEFAULT 'campaign',
+    subject         TEXT NOT NULL,
+    body            TEXT NOT NULL,
+    body_source     TEXT NULL,
+    is_default      BOOLEAN NOT NULL DEFAULT false,
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TYPE template_type AS ENUM ('campaign', 'campaign_visual', 'tx');
+
+CREATE UNIQUE INDEX ON templates (is_default) WHERE is_default = true;
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Test Thoroughly" icon="flask">
+    Preview templates with various subscriber attributes before using in campaigns
+  </Card>
+  
+  <Card title="Mobile Responsive" icon="mobile">
+    Use media queries and fluid layouts for mobile compatibility
+  </Card>
+  
+  <Card title="Fallback Values" icon="shield">
+    Use `default` function to handle missing subscriber attributes gracefully
+  </Card>
+  
+  <Card title="Track Everything" icon="chart-line">
+    Include TrackView and use TrackLink for all external URLs
+  </Card>
+  
+  <Card title="Accessible Design" icon="universal-access">
+    Use semantic HTML and sufficient color contrast
+  </Card>
+  
+  <Card title="Version Control" icon="code-branch">
+    Keep template HTML in version control outside listmonk for complex templates
+  </Card>
+</CardGroup>

@@ -1,0 +1,348 @@
+---
+title: Subscribers
+description: Manage your subscriber database with powerful tools for adding, organizing, and maintaining contacts
+---
+
+Subscribers are the core of your mailing list. listmonk provides comprehensive tools to manage subscriber data, attributes, and privacy settings.
+
+## Subscriber Data Model
+
+Each subscriber in listmonk has the following properties:
+
+- **ID**: Unique numeric identifier
+- **UUID**: Unique universal identifier for public-facing operations
+- **Email**: Unique email address (case-insensitive)
+- **Name**: Subscriber's name
+- **Attribs**: JSONB custom attributes field for flexible data storage
+- **Status**: `enabled`, `disabled`, or `blocklisted`
+- **Created At**: Timestamp when subscriber was added
+- **Updated At**: Timestamp of last modification
+
+## Adding Subscribers
+
+<Tabs>
+  <Tab title="Manual Creation">
+    Add subscribers individually through the admin interface:
+
+    <Steps>
+      <Step title="Navigate to Subscribers">
+        Click on **Subscribers** in the main menu
+      </Step>
+      <Step title="Create New Subscriber">
+        Click the **New** button and fill in:
+        - Email address (required, validated)
+        - Name (1-500 characters)
+        - Custom attributes in JSON format
+        - Select lists to subscribe to
+      </Step>
+      <Step title="Set Subscription Options">
+        - Choose whether to preconfirm subscriptions
+        - For double opt-in lists, confirmation emails are sent automatically
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="CSV Import">
+    Bulk import subscribers from CSV or ZIP files:
+
+    <Steps>
+      <Step title="Prepare Your File">
+        CSV must include headers: `email`, `name`, `attributes`
+        
+        ```csv
+        email,name,attributes
+        user@example.com,John Doe,"{""city"": ""Bengaluru"", ""plan"": ""premium""}"
+        ```
+      </Step>
+      <Step title="Configure Import">
+        - **Mode**: `subscribe` or `blocklist`
+        - **Lists**: Select target lists
+        - **Subscription Status**: `confirmed` or `unconfirmed`
+        - **Overwrite**: Choose whether to update existing subscribers
+        - **Delimiter**: Usually comma (`,`)
+      </Step>
+      <Step title="Upload and Process">
+        The importer processes records in batches of 10,000 for optimal performance
+      </Step>
+    </Steps>
+
+    <Note>
+      ZIP files are automatically extracted and CSV files inside are processed
+    </Note>
+  </Tab>
+
+  <Tab title="API">
+    Create subscribers programmatically via the REST API:
+
+    ```bash
+    curl -u 'username:password' -X POST 'http://localhost:9000/api/subscribers' \
+      -H 'Content-Type: application/json' \
+      -d '{
+        "email": "user@example.com",
+        "name": "John Doe",
+        "status": "enabled",
+        "lists": [1, 2],
+        "attribs": {
+          "city": "Bengaluru",
+          "plan": "premium"
+        },
+        "preconfirm_subscriptions": true
+      }'
+    ```
+  </Tab>
+</Tabs>
+
+## Subscriber Statuses
+
+Subscribers can have one of three statuses:
+
+<CardGroup cols={3}>
+  <Card title="Enabled" icon="check">
+    Active subscribers who can receive campaigns
+  </Card>
+  <Card title="Disabled" icon="ban">
+    Temporarily disabled subscribers (excluded from campaigns)
+  </Card>
+  <Card title="Blocklisted" icon="shield">
+    Permanently blocked subscribers who cannot receive any emails
+  </Card>
+</CardGroup>
+
+### Status vs Subscription Status
+
+<Note>
+  **Subscriber Status** (enabled/disabled/blocklisted) is global, while **Subscription Status** (unconfirmed/confirmed/unsubscribed) is per-list in the `subscriber_lists` table.
+</Note>
+
+## Custom Attributes
+
+Subscribers support flexible JSONB attributes for storing custom data:
+
+```json
+{
+  "city": "Bengaluru",
+  "plan": "premium",
+  "signup_date": "2024-01-15",
+  "preferences": {
+    "newsletter": true,
+    "marketing": false
+  }
+}
+```
+
+### Using Attributes in Templates
+
+Access subscriber attributes in campaign templates:
+
+```html
+<p>Hello {{ .Subscriber.Name }} from {{ .Subscriber.Attribs.city }}!</p>
+<p>Your {{ .Subscriber.Attribs.plan }} plan is active.</p>
+```
+
+## Querying and Filtering
+
+### Search Subscribers
+
+Search by email or name using the search bar in the admin interface.
+
+### SQL Queries
+
+<Warning>
+  SQL query functionality requires the `subscribers:sql_query` permission
+</Warning>
+
+Execute custom SQL queries for advanced filtering:
+
+```sql
+SUBSCRIBERS.attribs->>'city' = 'Bengaluru' AND SUBSCRIBERS.status = 'enabled'
+```
+
+```sql
+SUBSCRIBERS.created_at > '2024-01-01' AND SUBSCRIBERS.attribs->>'plan' = 'premium'
+```
+
+### Filter by Lists
+
+Filter subscribers by:
+- List membership
+- Subscription status (unconfirmed/confirmed/unsubscribed)
+- Multiple list combinations
+
+## Subscriber Management
+
+### Bulk Operations
+
+Perform actions on multiple subscribers:
+
+- **Add to Lists**: Subscribe to one or more lists
+- **Remove from Lists**: Delete subscriptions
+- **Unsubscribe**: Mark as unsubscribed from lists
+- **Blocklist**: Permanently block subscribers
+- **Delete**: Remove subscribers entirely
+
+<Tabs>
+  <Tab title="By Selection">
+    Select specific subscriber IDs and apply bulk actions
+  </Tab>
+  <Tab title="By Query">
+    Use search or SQL queries to target subscribers for bulk operations:
+    
+    ```json
+    {
+      "query": "SUBSCRIBERS.attribs->>'plan' = 'free'",
+      "action": "add",
+      "target_list_ids": [5],
+      "status": "confirmed"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Managing List Subscriptions
+
+For individual or bulk subscribers:
+
+1. **Add to Lists**: Specify target lists and subscription status
+2. **Remove from Lists**: Delete subscriber-list relationships
+3. **Unsubscribe**: Sets subscription status to `unsubscribed`
+
+## Export Subscribers
+
+Export subscriber data as CSV:
+
+<Steps>
+  <Step title="Choose Export Scope">
+    - All subscribers
+    - Filtered by search/query
+    - Selected subscribers by ID
+    - By list or subscription status
+  </Step>
+  <Step title="Download CSV">
+    CSV includes: UUID, email, name, attributes (JSON), status, created_at, updated_at
+  </Step>
+</Steps>
+
+## Privacy Features
+
+listmonk includes built-in privacy tools configurable via settings:
+
+### Subscriber Self-Service
+
+<CardGroup cols={2}>
+  <Card title="Blocklist" icon="ban">
+    Allow subscribers to blocklist themselves (`privacy.allow_blocklist`)
+  </Card>
+  <Card title="Data Export" icon="download">
+    Let subscribers export their data (`privacy.allow_export`)
+  </Card>
+  <Card title="Preferences" icon="sliders">
+    Enable subscription preference management (`privacy.allow_preferences`)
+  </Card>
+  <Card title="Data Wipe" icon="trash">
+    Allow subscribers to delete all their data (`privacy.allow_wipe`)
+  </Card>
+</CardGroup>
+
+### Data Export for Subscribers
+
+Exportable data types (configured in `privacy.exportable`):
+
+- `profile`: Subscriber profile information
+- `subscriptions`: List memberships
+- `campaign_views`: View tracking data
+- `link_clicks`: Click tracking data
+
+Exported as JSON with all requested data types.
+
+### Domain Filtering
+
+- **Domain Blocklist**: Prevent subscriptions from specific domains (`privacy.domain_blocklist`)
+- **Domain Allowlist**: Only allow subscriptions from specific domains (`privacy.domain_allowlist`)
+
+### Tracking Controls
+
+- **Individual Tracking**: Track opens/clicks per subscriber (`privacy.individual_tracking`)
+- **Disable Tracking**: Turn off all tracking (`privacy.disable_tracking`)
+- **Record Opt-in IP**: Store IP addresses during subscription (`privacy.record_optin_ip`)
+
+## Bounce Management
+
+View and manage bounces for subscribers:
+
+- Bounces are tracked per subscriber and campaign
+- Types: `soft`, `hard`, `complaint`
+- Delete all bounces for a subscriber to reset their bounce count
+
+### Automatic Actions
+
+Configure bounce handling in settings:
+- Soft bounces: Action after N occurrences
+- Hard bounces: Immediate blocklist
+- Complaints: Immediate blocklist
+
+## Subscriber Activity
+
+View subscriber engagement:
+
+- **Campaign Views**: Which campaigns they opened
+- **Link Clicks**: Links they clicked with timestamps
+- Activity is tracked per campaign (if tracking is enabled)
+
+<Note>
+  Activity tracking requires `privacy.individual_tracking` to be enabled
+</Note>
+
+## Advanced Features
+
+### Orphan Subscribers
+
+Subscribers not subscribed to any lists are considered "orphans" and tracked in dashboard statistics.
+
+### Double Opt-in Workflow
+
+For lists with `optin: double`:
+
+<Steps>
+  <Step title="Subscriber Joins">
+    New subscription is created with status `unconfirmed`
+  </Step>
+  <Step title="Confirmation Email Sent">
+    System sends opt-in email with confirmation link
+  </Step>
+  <Step title="Subscriber Confirms">
+    Clicking link changes status to `confirmed`
+  </Step>
+</Steps>
+
+Manually trigger opt-in emails via the subscriber management interface.
+
+## Database Schema
+
+```sql
+CREATE TABLE subscribers (
+    id              SERIAL PRIMARY KEY,
+    uuid            UUID NOT NULL UNIQUE,
+    email           TEXT NOT NULL UNIQUE,
+    name            TEXT NOT NULL,
+    attribs         JSONB NOT NULL DEFAULT '{}',
+    status          subscriber_status NOT NULL DEFAULT 'enabled',
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### Subscription Relationship
+
+```sql
+CREATE TABLE subscriber_lists (
+    subscriber_id   INTEGER REFERENCES subscribers(id),
+    list_id         INTEGER REFERENCES lists(id),
+    status          subscription_status NOT NULL DEFAULT 'unconfirmed',
+    meta            JSONB NOT NULL DEFAULT '{}',
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    PRIMARY KEY(subscriber_id, list_id)
+);
+```
+
+Subscription status values: `unconfirmed`, `confirmed`, `unsubscribed`

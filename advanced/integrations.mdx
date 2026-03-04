@@ -1,0 +1,754 @@
+---
+title: Integrations & Webhooks
+description: Integrate listmonk with external systems via REST API, webhooks, and public endpoints
+---
+
+listmonk provides multiple integration points for connecting with external systems, automation tools, and custom applications.
+
+## REST API for External Systems
+
+listmonk's comprehensive REST API allows full programmatic control.
+
+### API Authentication
+
+All API endpoints (except public ones) require authentication:
+
+```bash
+curl -u "username:password" http://localhost:9000/api/subscribers
+```
+
+Or with API tokens:
+
+```bash
+curl -H "Authorization: Bearer your-api-token" http://localhost:9000/api/subscribers
+```
+
+### Core API Endpoints
+
+The API is defined in `cmd/handlers.go:101-219`.
+
+#### Subscribers
+
+```bash
+# List subscribers
+GET /api/subscribers
+
+# Get subscriber by ID
+GET /api/subscribers/:id
+
+# Create subscriber
+POST /api/subscribers
+{
+  "email": "user@example.com",
+  "name": "John Doe",
+  "status": "enabled",
+  "lists": [1, 2],
+  "attribs": {"city": "New York"}
+}
+
+# Update subscriber
+PUT /api/subscribers/:id
+
+# Delete subscriber
+DELETE /api/subscribers/:id
+```
+
+#### Lists
+
+```bash
+# Get all lists
+GET /api/lists
+
+# Create list
+POST /api/lists
+{
+  "name": "My List",
+  "type": "public",
+  "optin": "double",
+  "tags": ["newsletter"]
+}
+
+# Update list
+PUT /api/lists/:id
+
+# Delete list
+DELETE /api/lists/:id
+```
+
+#### Campaigns
+
+```bash
+# Get campaigns
+GET /api/campaigns
+
+# Create campaign
+POST /api/campaigns
+
+# Update campaign status
+PUT /api/campaigns/:id/status
+{
+  "status": "running"
+}
+```
+
+## Public API Endpoints
+
+listmonk provides public endpoints for subscription forms and archives (defined in `cmd/handlers.go:258-263`).
+
+### Public Lists
+
+Get all public lists:
+
+```bash
+GET /api/public/lists
+```
+
+Returns:
+
+```json
+[
+  {
+    "uuid": "list-uuid",
+    "name": "Weekly Newsletter"
+  }
+]
+```
+
+Implementation: `cmd/public.go:123-144`
+
+### Public Subscription
+
+Subscribe via API:
+
+```bash
+POST /api/public/subscription
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "name": "John Doe",
+  "list_uuids": ["list-uuid-1", "list-uuid-2"]
+}
+```
+
+Returns:
+
+```json
+{
+  "data": {
+    "has_optin": true
+  }
+}
+```
+
+- `has_optin: true` - Subscriber needs to confirm (double opt-in lists)
+- `has_optin: false` - Immediately subscribed (single opt-in lists)
+
+Implementation: `cmd/public.go:516-529`
+
+## Custom Subscription Forms
+
+Create custom subscription forms on your website.
+
+### HTML Form Example
+
+```html
+<form action="https://your-listmonk.com/subscription/form" method="POST">
+  <input type="email" name="email" placeholder="Your email" required>
+  <input type="text" name="name" placeholder="Your name" required>
+  
+  <!-- List UUIDs -->
+  <input type="hidden" name="l" value="list-uuid-1">
+  <input type="hidden" name="l" value="list-uuid-2">
+  
+  <button type="submit">Subscribe</button>
+</form>
+```
+
+Form handling: `cmd/public.go:452-512`
+
+### JavaScript Form Example
+
+```javascript
+document.getElementById('subscribe-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const formData = {
+    email: document.getElementById('email').value,
+    name: document.getElementById('name').value,
+    list_uuids: ['list-uuid-1', 'list-uuid-2']
+  };
+  
+  try {
+    const response = await fetch('https://your-listmonk.com/api/public/subscription', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
+    });
+    
+    const data = await response.json();
+    
+    if (data.data.has_optin) {
+      alert('Please check your email to confirm subscription');
+    } else {
+      alert('Successfully subscribed!');
+    }
+  } catch (error) {
+    alert('Subscription failed: ' + error.message);
+  }
+});
+```
+
+### React Component Example
+
+```jsx
+import { useState } from 'react';
+
+function SubscriptionForm() {
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [status, setStatus] = useState('');
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const response = await fetch('https://your-listmonk.com/api/public/subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          name,
+          list_uuids: ['list-uuid-1']
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.data.has_optin) {
+        setStatus('Check your email to confirm!');
+      } else {
+        setStatus('Successfully subscribed!');
+      }
+    } catch (error) {
+      setStatus('Subscription failed');
+    }
+  };
+  
+  return (
+    <form onSubmit={handleSubmit}>
+      <input 
+        type="email" 
+        value={email} 
+        onChange={(e) => setEmail(e.target.value)} 
+        placeholder="Email"
+        required 
+      />
+      <input 
+        type="text" 
+        value={name} 
+        onChange={(e) => setName(e.target.value)} 
+        placeholder="Name"
+        required 
+      />
+      <button type="submit">Subscribe</button>
+      {status && <p>{status}</p>}
+    </form>
+  );
+}
+```
+
+## Subscriber Import from External Sources
+
+Import subscribers programmatically from external systems.
+
+### Import API Endpoints
+
+Defined in `cmd/handlers.go:147-150`:
+
+```bash
+# Start import
+POST /api/import/subscribers
+
+# Check import status
+GET /api/import/subscribers
+
+# Get import logs
+GET /api/import/subscribers/logs
+
+# Stop running import
+DELETE /api/import/subscribers
+```
+
+### Import CSV Data
+
+```bash
+curl -X POST http://localhost:9000/api/import/subscribers \
+  -H "Authorization: Bearer token" \
+  -F "mode=subscribe" \
+  -F "lists=1,2" \
+  -F "overwrite=true" \
+  -F "file=@subscribers.csv"
+```
+
+CSV format:
+
+```csv
+email,name,attributes
+user1@example.com,John Doe,"{""city"": ""NYC"", ""plan"": ""premium""}"
+user2@example.com,Jane Smith,"{""city"": ""LA""}"
+```
+
+### Import from API Response
+
+Pull subscribers from external API and import:
+
+```python
+import requests
+import csv
+import io
+
+# Fetch from external API
+external_data = requests.get('https://external-api.com/users').json()
+
+# Convert to CSV
+output = io.StringIO()
+writer = csv.writer(output)
+writer.writerow(['email', 'name', 'attributes'])
+
+for user in external_data:
+    writer.writerow([
+        user['email'],
+        user['name'],
+        f'{{"source": "external_api", "id": "{user["id"]}"}}'  
+    ])
+
+# Import to listmonk
+files = {'file': ('import.csv', output.getvalue())}
+data = {
+    'mode': 'subscribe',
+    'lists': '1,2',
+    'overwrite': 'true'
+}
+
+response = requests.post(
+    'http://localhost:9000/api/import/subscribers',
+    headers={'Authorization': 'Bearer token'},
+    files=files,
+    data=data
+)
+```
+
+## Webhook Integrations
+
+listmonk supports incoming webhooks for bounces and can trigger outbound webhooks via custom messengers.
+
+### Bounce Webhooks
+
+Receive bounce notifications from email providers.
+
+#### Supported Providers
+
+From `cmd/bounce.go:130-224`:
+
+- **Amazon SES** - `/webhooks/service/ses`
+- **SendGrid** - `/webhooks/service/sendgrid`
+- **Postmark** - `/webhooks/service/postmark`
+- **ForwardEmail** - `/webhooks/service/forwardemail`
+
+See [Bounce Handling](/advanced/bounces) for detailed configuration.
+
+### Custom Webhooks via Messengers
+
+Use postback messengers to send campaign data to external webhooks.
+
+#### Configure Postback Messenger
+
+```json
+[
+  {
+    "enabled": true,
+    "name": "webhook",
+    "root_url": "https://your-webhook.com/listmonk",
+    "username": "webhook_user",
+    "password": "webhook_pass",
+    "max_conns": 10
+  }
+]
+```
+
+#### Use in Campaign
+
+When creating a campaign, select the webhook messenger. listmonk will POST campaign data to your endpoint.
+
+## Zapier / Make.com Integration Patterns
+
+Integrate listmonk with automation platforms.
+
+### Zapier Webhook Integration
+
+<Steps>
+  <Step title="Create Zapier Webhook Trigger">
+    Set up a Zapier webhook that receives subscriber data
+  </Step>
+  
+  <Step title="Get Webhook URL">
+    Copy the webhook URL from Zapier (e.g., `https://hooks.zapier.com/hooks/catch/...`)
+  </Step>
+  
+  <Step title="Send Data from Application">
+    When a user signs up, send data to Zapier:
+    
+    ```javascript
+    // In your application
+    await fetch('https://hooks.zapier.com/hooks/catch/xxx', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: user.email,
+        name: user.name,
+        plan: user.plan
+      })
+    });
+    ```
+  </Step>
+  
+  <Step title="Add listmonk Action">
+    In Zapier, add an action to call listmonk API:
+    
+    - Action: Webhooks by Zapier → POST
+    - URL: `https://your-listmonk.com/api/subscribers`
+    - Headers: `Authorization: Bearer your-token`
+    - Body: Map fields from trigger
+  </Step>
+</Steps>
+
+### Make.com Scenario Example
+
+<Steps>
+  <Step title="Trigger Module">
+    Use a webhook trigger or schedule
+  </Step>
+  
+  <Step title="HTTP Request to listmonk">
+    Add HTTP module:
+    
+    - Method: POST
+    - URL: `https://your-listmonk.com/api/subscribers`
+    - Headers:
+      ```json
+      {
+        "Authorization": "Bearer your-token",
+        "Content-Type": "application/json"
+      }
+      ```
+    - Body:
+      ```json
+      {
+        "email": "{{email}}",
+        "name": "{{name}}",
+        "lists": [1],
+        "attribs": {
+          "source": "make.com"
+        }
+      }
+      ```
+  </Step>
+  
+  <Step title="Error Handling">
+    Add error handler to retry failed requests
+  </Step>
+</Steps>
+
+### Common Automation Workflows
+
+<Accordion title="Sync CRM to listmonk">
+**Scenario**: When a contact is added to your CRM, add them to listmonk
+
+1. CRM webhook triggers on new contact
+2. Extract email, name, custom fields
+3. POST to `/api/subscribers` with mapped data
+4. Subscribe to appropriate lists based on CRM tags
+</Accordion>
+
+<Accordion title="E-commerce Purchase Follow-up">
+**Scenario**: Subscribe customers to post-purchase campaign
+
+1. Order completed webhook from e-commerce platform  
+2. Extract customer email and purchase data
+3. POST to `/api/subscribers` with purchase attributes
+4. Subscribe to "Customers" list
+5. Trigger transactional email via `/api/tx`
+</Accordion>
+
+<Accordion title="Form Submission to Multiple Lists">
+**Scenario**: Website form subscribes to different lists based on interests
+
+1. Form submission triggers webhook
+2. Parse selected interests/topics
+3. Map interests to listmonk list UUIDs
+4. POST to `/api/public/subscription` with list_uuids array
+</Accordion>
+
+<Accordion title="Unsubscribe Sync">
+**Scenario**: When user unsubscribes from listmonk, update external CRM
+
+1. Custom script monitors listmonk unsubscribes via API
+2. Detect status changes to "unsubscribed"
+3. POST to CRM API to update contact status
+4. Log sync for audit trail
+</Accordion>
+
+## Integration Examples
+
+### WordPress Integration
+
+```php
+<?php
+// WordPress plugin snippet
+add_action('user_register', 'subscribe_to_listmonk');
+
+function subscribe_to_listmonk($user_id) {
+    $user = get_userdata($user_id);
+    
+    $data = [
+        'email' => $user->user_email,
+        'name' => $user->display_name,
+        'lists' => [1], // List ID
+        'attribs' => [
+            'source' => 'wordpress',
+            'registration_date' => date('Y-m-d')
+        ]
+    ];
+    
+    wp_remote_post('https://your-listmonk.com/api/subscribers', [
+        'headers' => [
+            'Authorization' => 'Bearer ' . get_option('listmonk_api_token'),
+            'Content-Type' => 'application/json'
+        ],
+        'body' => json_encode($data)
+    ]);
+}
+?>
+```
+
+### Django Integration
+
+```python
+# Django signals
+from django.contrib.auth.signals import user_signed_up
+from django.dispatch import receiver
+import requests
+
+@receiver(user_signed_up)
+def subscribe_to_listmonk(sender, request, user, **kwargs):
+    data = {
+        'email': user.email,
+        'name': user.get_full_name(),
+        'lists': [1],
+        'attribs': {
+            'source': 'django',
+            'username': user.username
+        }
+    }
+    
+    requests.post(
+        'https://your-listmonk.com/api/subscribers',
+        headers={
+            'Authorization': f'Bearer {settings.LISTMONK_TOKEN}',
+            'Content-Type': 'application/json'
+        },
+        json=data
+    )
+```
+
+### Shopify Webhook
+
+```javascript
+// Shopify app webhook handler
+const express = require('express');
+const app = express();
+
+app.post('/webhooks/customers/create', async (req, res) => {
+  const customer = req.body;
+  
+  await fetch('https://your-listmonk.com/api/subscribers', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + process.env.LISTMONK_TOKEN,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      email: customer.email,
+      name: `${customer.first_name} ${customer.last_name}`,
+      lists: [1],
+      attribs: {
+        customer_id: customer.id,
+        total_spent: customer.total_spent,
+        orders_count: customer.orders_count
+      }
+    })
+  });
+  
+  res.status(200).send('OK');
+});
+```
+
+## Subscriber Data Sync
+
+Keep subscriber data in sync with external systems.
+
+### Bidirectional Sync Pattern
+
+```python
+import requests
+import schedule
+import time
+
+LISTMONK_URL = 'https://your-listmonk.com'
+LISTMONK_TOKEN = 'your-token'
+EXTERNAL_API = 'https://external-system.com'
+
+def sync_subscribers():
+    # Get subscribers from listmonk
+    response = requests.get(
+        f'{LISTMONK_URL}/api/subscribers',
+        headers={'Authorization': f'Bearer {LISTMONK_TOKEN}'},
+        params={'per_page': 1000}
+    )
+    listmonk_subs = {s['email']: s for s in response.json()['data']['results']}
+    
+    # Get subscribers from external system
+    external_subs = requests.get(f'{EXTERNAL_API}/contacts').json()
+    
+    # Sync from external to listmonk
+    for ext_sub in external_subs:
+        if ext_sub['email'] not in listmonk_subs:
+            # Create in listmonk
+            requests.post(
+                f'{LISTMONK_URL}/api/subscribers',
+                headers={'Authorization': f'Bearer {LISTMONK_TOKEN}'},
+                json={
+                    'email': ext_sub['email'],
+                    'name': ext_sub['name'],
+                    'lists': [1],
+                    'attribs': {'external_id': ext_sub['id']}
+                }
+            )
+    
+    # Sync from listmonk to external
+    for lm_email, lm_sub in listmonk_subs.items():
+        if lm_email not in [s['email'] for s in external_subs]:
+            # Create in external system
+            requests.post(
+                f'{EXTERNAL_API}/contacts',
+                json={
+                    'email': lm_sub['email'],
+                    'name': lm_sub['name']
+                }
+            )
+
+# Run sync every hour
+schedule.every().hour.do(sync_subscribers)
+
+while True:
+    schedule.run_pending()
+    time.sleep(60)
+```
+
+## API Client Libraries
+
+Use these community libraries to integrate with listmonk:
+
+- **Python**: [listmonk-python](https://github.com/samuelcolvin/listmonk-python)
+- **Go**: Use the official models and HTTP client
+- **JavaScript/TypeScript**: Create custom client using fetch/axios
+- **PHP**: Create custom client using Guzzle
+
+### Custom Client Example (TypeScript)
+
+```typescript
+class ListmonkClient {
+  private baseUrl: string;
+  private token: string;
+  
+  constructor(baseUrl: string, token: string) {
+    this.baseUrl = baseUrl;
+    this.token = token;
+  }
+  
+  private async request(method: string, path: string, body?: any) {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method,
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API error: ${response.statusText}`);
+    }
+    
+    return response.json();
+  }
+  
+  async getSubscribers(params?: { page?: number; per_page?: number }) {
+    const query = new URLSearchParams(params as any).toString();
+    return this.request('GET', `/api/subscribers?${query}`);
+  }
+  
+  async createSubscriber(data: {
+    email: string;
+    name: string;
+    lists: number[];
+    attribs?: Record<string, any>;
+  }) {
+    return this.request('POST', '/api/subscribers', data);
+  }
+  
+  async sendTransactional(data: {
+    subscriber_emails: string[];
+    template_id: number;
+    data?: Record<string, any>;
+  }) {
+    return this.request('POST', '/api/tx', data);
+  }
+}
+
+// Usage
+const client = new ListmonkClient('https://your-listmonk.com', 'your-token');
+await client.createSubscriber({
+  email: 'user@example.com',
+  name: 'John Doe',
+  lists: [1]
+});
+```
+
+## Security Best Practices
+
+<Steps>
+  <Step title="Use API tokens instead of passwords">
+    Create dedicated API users with minimal required permissions
+  </Step>
+  
+  <Step title="Validate webhook signatures">
+    For bounce webhooks, verify sender authenticity
+  </Step>
+  
+  <Step title="Use HTTPS for all integrations">
+    Never send credentials or data over unencrypted connections
+  </Step>
+  
+  <Step title="Implement rate limiting">
+    Protect your listmonk instance from API abuse
+  </Step>
+  
+  <Step title="Store credentials securely">
+    Use environment variables or secret managers for API tokens
+  </Step>
+  
+  <Step title="Monitor API usage">
+    Log and review API access patterns for suspicious activity
+  </Step>
+</Steps>

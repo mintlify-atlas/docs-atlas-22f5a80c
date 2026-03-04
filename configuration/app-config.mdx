@@ -1,0 +1,326 @@
+---
+title: 'App Configuration'
+description: 'Configure listmonk core application settings, database, and performance options'
+---
+
+## Configuration File
+
+listmonk uses TOML configuration files for low-level settings. Most settings can also be managed through the Settings dashboard in the admin UI.
+
+### Generating config.toml
+
+To generate a new sample configuration file:
+
+```bash
+listmonk --new-config
+```
+
+The default location is `config.toml` in the current directory.
+
+### Multiple Config Files
+
+You can load multiple TOML files that will be merged in order:
+
+```bash
+listmonk --config config.toml --config custom.toml
+```
+
+## Environment Variables
+
+All configuration variables can be provided as environment variables prefixed with `LISTMONK_` and periods replaced by `__` (double underscore).
+
+<Info>
+To run listmonk purely with environment variables, pass an empty config flag: `--config=""`
+</Info>
+
+### Environment Variable Examples
+
+| Environment Variable | Example Value | Description |
+|---------------------|---------------|-------------|
+| `LISTMONK_app__address` | `"0.0.0.0:9000"` | Server address and port |
+| `LISTMONK_db__host` | `"localhost"` | Database host |
+| `LISTMONK_db__port` | `5432` | Database port |
+| `LISTMONK_db__user` | `"listmonk"` | Database user |
+| `LISTMONK_db__password` | `"listmonk"` | Database password |
+| `LISTMONK_db__database` | `"listmonk"` | Database name |
+| `LISTMONK_db__ssl_mode` | `"disable"` | Database SSL mode |
+
+## Application Settings
+
+### Server Address
+
+<ParamField path="app.address" type="string" default="localhost:9000">
+  Interface and port where the app runs its webserver.
+  
+  - `localhost:9000` - Only listens to connections from the current machine
+  - `0.0.0.0:9000` - Listens on all interfaces
+  - Port 80 requires running with elevated permissions
+</ParamField>
+
+<CodeGroup>
+```toml config.toml
+[app]
+address = "0.0.0.0:9000"
+```
+
+```bash Environment Variable
+LISTMONK_app__address="0.0.0.0:9000"
+```
+</CodeGroup>
+
+### URL Configuration
+
+Configured through the Settings UI:
+
+<ParamField path="app.root_url" type="string" default="http://localhost:9000">
+  Root URL of the listmonk installation. Used for generating public URLs for unsubscribe links, tracking pixels, etc.
+</ParamField>
+
+<ParamField path="app.logo_url" type="string" default="">
+  URL to a logo image displayed in the admin interface and public pages.
+</ParamField>
+
+<ParamField path="app.favicon_url" type="string" default="">
+  URL to a favicon displayed in the admin interface.
+</ParamField>
+
+## Database Configuration
+
+listmonk requires PostgreSQL version 12 or higher.
+
+<ParamField path="db.host" type="string" default="localhost">
+  PostgreSQL server hostname or IP address.
+</ParamField>
+
+<ParamField path="db.port" type="integer" default="5432">
+  PostgreSQL server port.
+</ParamField>
+
+<ParamField path="db.user" type="string" default="listmonk">
+  Database user name.
+</ParamField>
+
+<ParamField path="db.password" type="string" default="listmonk">
+  Database password.
+</ParamField>
+
+<ParamField path="db.database" type="string" default="listmonk">
+  Database name. This database must be created in PostgreSQL before running listmonk.
+</ParamField>
+
+<ParamField path="db.ssl_mode" type="string" default="disable">
+  SSL mode for database connection.
+  
+  Options: `disable`, `require`, `verify-ca`, `verify-full`
+</ParamField>
+
+<ParamField path="db.max_open" type="integer" default="25">
+  Maximum number of open database connections in the pool.
+</ParamField>
+
+<ParamField path="db.max_idle" type="integer" default="25">
+  Maximum number of idle database connections in the pool.
+</ParamField>
+
+<ParamField path="db.max_lifetime" type="duration" default="300s">
+  Maximum lifetime of a database connection.
+</ParamField>
+
+<ParamField path="db.params" type="string" default="">
+  Optional space-separated PostgreSQL DSN parameters.
+  
+  Example: `"application_name=listmonk gssencmode=disable"`
+</ParamField>
+
+### Database Configuration Example
+
+<CodeGroup>
+```toml config.toml
+[db]
+host = "localhost"
+port = 5432
+user = "listmonk"
+password = "listmonk"
+database = "listmonk"
+ssl_mode = "disable"
+max_open = 25
+max_idle = 25
+max_lifetime = "300s"
+params = ""
+```
+
+```bash Environment Variables
+LISTMONK_db__host="localhost"
+LISTMONK_db__port=5432
+LISTMONK_db__user="listmonk"
+LISTMONK_db__password="listmonk"
+LISTMONK_db__database="listmonk"
+LISTMONK_db__ssl_mode="disable"
+LISTMONK_db__max_open=25
+LISTMONK_db__max_idle=25
+LISTMONK_db__max_lifetime="300s"
+```
+</CodeGroup>
+
+## Performance Settings
+
+These settings are configured through the Settings UI under Settings → Performance.
+
+<ParamField path="app.batch_size" type="integer" default="1000">
+  Number of subscribers fetched from the database in a single cycle (~5 seconds) when a campaign is running.
+  
+  <Info>
+  Increasing batch size uses more memory but reduces database round trips. Useful for large lists with millions of subscribers.
+  </Info>
+</ParamField>
+
+<ParamField path="app.concurrency" type="integer" default="10">
+  Maximum number of concurrent workers that send messages.
+</ParamField>
+
+<ParamField path="app.message_rate" type="integer" default="10">
+  Maximum number of messages to send per second per worker.
+</ParamField>
+
+<ParamField path="app.max_send_errors" type="integer" default="1000">
+  Maximum number of send errors before a campaign is paused.
+</ParamField>
+
+<ParamField path="app.message_sliding_window" type="boolean" default="false">
+  Enable sliding window rate limiting instead of per-second rate limiting.
+</ParamField>
+
+<ParamField path="app.message_sliding_window_duration" type="duration" default="1h">
+  Duration of the sliding window for rate limiting.
+</ParamField>
+
+<ParamField path="app.message_sliding_window_rate" type="integer" default="10000">
+  Maximum number of messages to send within the sliding window duration.
+</ParamField>
+
+### Slow Query Caching
+
+<ParamField path="app.cache_slow_queries" type="boolean" default="false">
+  Enable caching of slow queries for better dashboard performance.
+  
+  <Warning>
+  When enabled, aggregate numbers and stats will not be real-time.
+  </Warning>
+</ParamField>
+
+<ParamField path="app.cache_slow_queries_interval" type="string" default="0 3 * * *">
+  Cron interval for refreshing cached queries (default: 3 AM daily).
+</ParamField>
+
+## Notification Settings
+
+<ParamField path="app.from_email" type="string" default="listmonk <noreply@listmonk.yoursite.com>">
+  Default "From" email address for campaigns and system notifications.
+</ParamField>
+
+<ParamField path="app.notify_emails" type="array" default="[]">
+  Array of email addresses to receive system notifications (import completion, errors, etc.).
+  
+  Example: `["admin@example.com", "alerts@example.com"]`
+</ParamField>
+
+## Public Features
+
+<ParamField path="app.enable_public_subscription_page" type="boolean" default="true">
+  Enable the public subscription management page where subscribers can manage their subscriptions.
+</ParamField>
+
+<ParamField path="app.enable_public_archive" type="boolean" default="true">
+  Enable the public campaign archive page.
+</ParamField>
+
+<ParamField path="app.enable_public_archive_rss_content" type="boolean" default="true">
+  Include full campaign content in the public archive RSS feed.
+</ParamField>
+
+## Internationalization
+
+<ParamField path="app.lang" type="string" default="en">
+  Default language for the admin interface and public pages.
+  
+  Supported languages are determined by available translation files in the i18n directory.
+</ParamField>
+
+## Additional Settings
+
+<ParamField path="app.send_optin_confirmation" type="boolean" default="true">
+  Automatically send opt-in confirmation emails to new subscribers.
+</ParamField>
+
+<ParamField path="app.check_updates" type="boolean" default="true">
+  Check for new listmonk versions on startup.
+</ParamField>
+
+## Reloading Configuration
+
+<Accordion title="How to reload configuration without restart">
+  Most settings can be changed through the Settings UI and take effect immediately. Changes to the TOML configuration file or environment variables require restarting listmonk.
+  
+  When you update settings through the admin UI, listmonk sends a SIGHUP signal to reload the configuration.
+  
+  ```bash
+  # Send reload signal manually
+  kill -HUP $(pgrep listmonk)
+  ```
+  
+  <Info>
+  Database settings and the server address require a full restart and cannot be hot-reloaded.
+  </Info>
+</Accordion>
+
+## Advanced Configuration
+
+### Custom Static and i18n Directories
+
+You can override the default static files and internationalization files:
+
+```bash
+listmonk --static-dir=/path/to/static --i18n-dir=/path/to/i18n
+```
+
+### Passive Mode
+
+Run listmonk in passive mode where campaigns are not processed:
+
+```bash
+listmonk --passive
+```
+
+This is useful for running multiple listmonk instances where only one instance processes campaigns.
+
+## Docker Configuration
+
+When running with Docker, you can mount a custom config file:
+
+<CodeGroup>
+```yaml docker-compose.yml
+services:
+  app:
+    image: listmonk/listmonk:latest
+    volumes:
+      - ./config.toml:/listmonk/config.toml
+    command: [
+      sh, -c,
+      "./listmonk --config /listmonk/config.toml"
+    ]
+```
+
+```yaml Environment Variables
+services:
+  app:
+    image: listmonk/listmonk:latest
+    environment:
+      - LISTMONK_app__address=0.0.0.0:9000
+      - LISTMONK_db__host=listmonk_db
+      - LISTMONK_db__port=5432
+      - LISTMONK_db__user=listmonk
+      - LISTMONK_db__password=listmonk
+      - LISTMONK_db__database=listmonk
+      - LISTMONK_db__ssl_mode=disable
+```
+</CodeGroup>

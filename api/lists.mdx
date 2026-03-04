@@ -1,0 +1,341 @@
+---
+title: 'Lists API'
+description: 'Manage mailing lists including creation, updates, and deletion'
+---
+
+## Query lists
+
+<CodeGroup>
+```bash GET /api/lists
+curl -u 'username:password' 'https://listmonk.mysite.com/api/lists' \
+  -G \
+  -d 'page=1' \
+  -d 'per_page=100'
+```
+</CodeGroup>
+
+Retrieves all mailing lists with subscriber counts.
+
+**Authentication:** Required  
+**Permission:** Filtered by user's list permissions
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="20">
+  Number of results per page
+</ParamField>
+
+<ParamField query="query" type="string">
+  Search term to filter lists by name
+</ParamField>
+
+<ParamField query="tag" type="string">
+  Filter by tag (can be specified multiple times)
+</ParamField>
+
+<ParamField query="type" type="string">
+  Filter by type: `private` or `public`
+</ParamField>
+
+<ParamField query="optin" type="string">
+  Filter by opt-in type: `single` or `double`
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filter by status: `active` or `archived`
+</ParamField>
+
+<ParamField query="order_by" type="string" default="created_at">
+  Field to order by: `id`, `name`, `created_at`, `updated_at`
+</ParamField>
+
+<ParamField query="order" type="string" default="asc">
+  Sort order: `asc` or `desc`
+</ParamField>
+
+<ParamField query="minimal" type="boolean" default="false">
+  If true, returns minimal list data without subscriber counts (faster)
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="object">
+  <Expandable title="properties">
+    <ResponseField name="results" type="array">
+      Array of list objects
+      <Expandable title="list object">
+        <ResponseField name="id" type="integer">
+          List ID
+        </ResponseField>
+        <ResponseField name="uuid" type="string">
+          Unique UUID for the list
+        </ResponseField>
+        <ResponseField name="name" type="string">
+          List name
+        </ResponseField>
+        <ResponseField name="type" type="string">
+          List type: `private` or `public`
+        </ResponseField>
+        <ResponseField name="optin" type="string">
+          Opt-in type: `single` or `double`
+        </ResponseField>
+        <ResponseField name="status" type="string">
+          Status: `active` or `archived`
+        </ResponseField>
+        <ResponseField name="tags" type="array">
+          Array of tags
+        </ResponseField>
+        <ResponseField name="description" type="string">
+          List description
+        </ResponseField>
+        <ResponseField name="subscriber_count" type="integer">
+          Total subscriber count
+        </ResponseField>
+        <ResponseField name="subscriber_statuses" type="object">
+          Subscriber counts by status (confirmed, unconfirmed, unsubscribed)
+        </ResponseField>
+        <ResponseField name="created_at" type="string">
+          Creation timestamp
+        </ResponseField>
+        <ResponseField name="updated_at" type="string">
+          Last update timestamp
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="query" type="string">
+      The search query used
+    </ResponseField>
+    <ResponseField name="total" type="integer">
+      Total number of lists
+    </ResponseField>
+    <ResponseField name="per_page" type="integer">
+      Results per page
+    </ResponseField>
+    <ResponseField name="page" type="integer">
+      Current page number
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Get list
+
+<CodeGroup>
+```bash GET /api/lists/:id
+curl -u 'username:password' 'https://listmonk.mysite.com/api/lists/1'
+```
+</CodeGroup>
+
+Retrieves a single list by ID.
+
+**Authentication:** Required  
+**Permission:** User must have get permission for the list
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  List ID
+</ParamField>
+
+### Response
+
+Returns a single list object with the same structure as the query endpoint.
+
+---
+
+## Create list
+
+<CodeGroup>
+```bash POST /api/lists
+curl -u 'username:password' 'https://listmonk.mysite.com/api/lists' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "My New List",
+    "type": "private",
+    "optin": "double",
+    "status": "active",
+    "tags": ["customers", "newsletter"],
+    "description": "Monthly newsletter subscribers"
+  }'
+```
+</CodeGroup>
+
+Creates a new mailing list.
+
+**Authentication:** Required  
+**Permission:** `lists:manage_all`
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  List name (max 2000 characters, must be unique)
+</ParamField>
+
+<ParamField body="type" type="string" default="private">
+  List type: `private` (not shown on public pages) or `public` (shown on public subscription pages)
+</ParamField>
+
+<ParamField body="optin" type="string" default="single">
+  Opt-in type:
+  - `single`: Subscribers are automatically confirmed
+  - `double`: Subscribers receive a confirmation email
+</ParamField>
+
+<ParamField body="status" type="string" default="active">
+  Status: `active` or `archived`
+</ParamField>
+
+<ParamField body="tags" type="array">
+  Array of tags (strings) for categorization
+</ParamField>
+
+<ParamField body="description" type="string">
+  Optional description of the list
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="object">
+  Returns the created list object
+</ResponseField>
+
+---
+
+## Update list
+
+<CodeGroup>
+```bash PUT /api/lists/:id
+curl -u 'username:password' -X PUT 'https://listmonk.mysite.com/api/lists/1' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Updated List Name",
+    "type": "public",
+    "optin": "single",
+    "status": "active",
+    "tags": ["updated", "newsletter"],
+    "description": "Updated description"
+  }'
+```
+</CodeGroup>
+
+Updates an existing list.
+
+**Authentication:** Required  
+**Permission:** User must have manage permission for the list
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  List ID
+</ParamField>
+
+### Request Body
+
+Same parameters as create list. All fields are optional - only provided fields will be updated.
+
+<ParamField body="name" type="string">
+  List name (max 2000 characters)
+</ParamField>
+
+<ParamField body="type" type="string">
+  List type: `private` or `public`
+</ParamField>
+
+<ParamField body="optin" type="string">
+  Opt-in type: `single` or `double`
+</ParamField>
+
+<ParamField body="status" type="string">
+  Status: `active` or `archived`
+</ParamField>
+
+<ParamField body="tags" type="array">
+  Array of tags
+</ParamField>
+
+<ParamField body="description" type="string">
+  List description
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="object">
+  Returns the updated list object
+</ResponseField>
+
+---
+
+## Delete list
+
+<CodeGroup>
+```bash DELETE /api/lists/:id
+curl -u 'username:password' -X DELETE 'https://listmonk.mysite.com/api/lists/1'
+```
+</CodeGroup>
+
+Deletes a single list. This will also remove all subscriber associations with the list.
+
+**Authentication:** Required  
+**Permission:** User must have manage permission for the list
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  List ID
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="boolean">
+  Returns `true` on successful deletion
+</ResponseField>
+
+---
+
+## Delete lists (bulk)
+
+<CodeGroup>
+```bash DELETE /api/lists
+curl -u 'username:password' -X DELETE 'https://listmonk.mysite.com/api/lists?id=1&id=2&id=3'
+```
+
+```bash DELETE by query
+curl -u 'username:password' -X DELETE 'https://listmonk.mysite.com/api/lists' \
+  -G \
+  -d 'query=test'
+```
+</CodeGroup>
+
+Deletes multiple lists by IDs or by query.
+
+**Authentication:** Required  
+**Permission:** User must have manage permission for each list
+
+### Query Parameters
+
+<ParamField query="id" type="integer">
+  List ID to delete (can be specified multiple times)
+</ParamField>
+
+<ParamField query="query" type="string">
+  Search term to match list names for deletion
+</ParamField>
+
+<ParamField query="all" type="boolean">
+  If true, deletes all lists (use with caution)
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="boolean">
+  Returns `true` on successful deletion
+</ResponseField>
+
+<Warning>
+  Deleting lists will permanently remove all subscriber associations with those lists. This action cannot be undone.
+</Warning>

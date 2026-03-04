@@ -1,0 +1,339 @@
+---
+title: 'Bounces API'
+description: 'Manage email bounces and complaints'
+---
+
+## Get bounces
+
+<CodeGroup>
+```bash GET /api/bounces
+curl -u 'username:password' 'https://listmonk.mysite.com/api/bounces' \
+  -G \
+  -d 'page=1' \
+  -d 'per_page=50' \
+  -d 'campaign_id=1'
+```
+</CodeGroup>
+
+Retrieves bounce records with pagination and filtering.
+
+**Authentication:** Required  
+**Permission:** `bounces:get`
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="20">
+  Number of results per page
+</ParamField>
+
+<ParamField query="campaign_id" type="integer">
+  Filter by campaign ID
+</ParamField>
+
+<ParamField query="source" type="string">
+  Filter by bounce source (e.g., "ses", "sendgrid", "postmark", "manual")
+</ParamField>
+
+<ParamField query="order_by" type="string" default="created_at">
+  Field to order by
+</ParamField>
+
+<ParamField query="order" type="string" default="desc">
+  Sort order: `asc` or `desc`
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="object">
+  <Expandable title="properties">
+    <ResponseField name="results" type="array">
+      Array of bounce objects
+      <Expandable title="bounce object">
+        <ResponseField name="id" type="integer">
+          Bounce ID
+        </ResponseField>
+        <ResponseField name="type" type="string">
+          Bounce type: `hard`, `soft`, or `complaint`
+        </ResponseField>
+        <ResponseField name="source" type="string">
+          Source of bounce: `ses`, `sendgrid`, `postmark`, `forwardemail`, or `manual`
+        </ResponseField>
+        <ResponseField name="email" type="string">
+          Email address that bounced
+        </ResponseField>
+        <ResponseField name="subscriber_uuid" type="string">
+          Subscriber UUID (if matched)
+        </ResponseField>
+        <ResponseField name="subscriber_id" type="integer">
+          Subscriber ID (if matched)
+        </ResponseField>
+        <ResponseField name="subscriber_status" type="string">
+          Current subscriber status
+        </ResponseField>
+        <ResponseField name="campaign_uuid" type="string">
+          Campaign UUID (if associated)
+        </ResponseField>
+        <ResponseField name="campaign" type="object">
+          Campaign details (if associated)
+        </ResponseField>
+        <ResponseField name="meta" type="object">
+          Additional metadata from bounce provider
+        </ResponseField>
+        <ResponseField name="created_at" type="string">
+          Bounce timestamp
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="total" type="integer">
+      Total number of bounces
+    </ResponseField>
+    <ResponseField name="per_page" type="integer">
+      Results per page
+    </ResponseField>
+    <ResponseField name="page" type="integer">
+      Current page number
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Get bounce
+
+<CodeGroup>
+```bash GET /api/bounces/:id
+curl -u 'username:password' 'https://listmonk.mysite.com/api/bounces/1'
+```
+</CodeGroup>
+
+Retrieves a single bounce record by ID.
+
+**Authentication:** Required  
+**Permission:** `bounces:get`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Bounce ID
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="object">
+  Returns a single bounce object
+</ResponseField>
+
+---
+
+## Delete bounce
+
+<CodeGroup>
+```bash DELETE /api/bounces/:id
+curl -u 'username:password' -X DELETE 'https://listmonk.mysite.com/api/bounces/1'
+```
+</CodeGroup>
+
+Deletes a single bounce record.
+
+**Authentication:** Required  
+**Permission:** `bounces:manage`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Bounce ID
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="boolean">
+  Returns `true` on successful deletion
+</ResponseField>
+
+---
+
+## Delete bounces (bulk)
+
+<CodeGroup>
+```bash DELETE /api/bounces
+curl -u 'username:password' -X DELETE 'https://listmonk.mysite.com/api/bounces?id=1&id=2&id=3'
+```
+
+```bash DELETE all bounces
+curl -u 'username:password' -X DELETE 'https://listmonk.mysite.com/api/bounces?all=true'
+```
+</CodeGroup>
+
+Deletes multiple bounce records.
+
+**Authentication:** Required  
+**Permission:** `bounces:manage`
+
+### Query Parameters
+
+<ParamField query="id" type="integer">
+  Bounce ID to delete (can be specified multiple times)
+</ParamField>
+
+<ParamField query="all" type="boolean">
+  If true, deletes all bounce records
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="boolean">
+  Returns `true` on successful deletion
+</ResponseField>
+
+---
+
+## Blocklist bounced subscribers
+
+<CodeGroup>
+```bash PUT /api/bounces/blocklist
+curl -u 'username:password' -X PUT 'https://listmonk.mysite.com/api/bounces/blocklist'
+```
+</CodeGroup>
+
+Blocklists all subscribers who have hard bounces or complaints.
+
+**Authentication:** Required  
+**Permission:** `bounces:manage`
+
+### Response
+
+<ResponseField name="data" type="boolean">
+  Returns `true` on success
+</ResponseField>
+
+<Note>
+  This operation blocklists subscribers with `hard` bounces or `complaint` bounces. Subscribers with `soft` bounces are not affected.
+</Note>
+
+---
+
+## Record bounce (webhook)
+
+<CodeGroup>
+```bash POST /webhooks/bounce
+curl -u 'username:password' 'https://listmonk.mysite.com/webhooks/bounce' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "type": "hard",
+    "email": "bounce@example.com",
+    "campaign_uuid": "5e6e3e8f-6b5a-4c8d-9c3a-1f2e3c4b5a6d",
+    "source": "manual",
+    "meta": {"reason": "Mailbox does not exist"}
+  }'
+```
+</CodeGroup>
+
+Manually records a bounce event. This endpoint can be used for custom bounce handling or integration with third-party services.
+
+**Authentication:** Required  
+**Permission:** `webhooks:post_bounce`
+
+### Request Body
+
+<ParamField body="type" type="string" required>
+  Bounce type:
+  - `hard`: Permanent delivery failure (mailbox doesn't exist, domain invalid)
+  - `soft`: Temporary failure (mailbox full, server unavailable)
+  - `complaint`: Spam complaint
+</ParamField>
+
+<ParamField body="email" type="string">
+  Email address that bounced (either `email` or `subscriber_uuid` required)
+</ParamField>
+
+<ParamField body="subscriber_uuid" type="string">
+  Subscriber UUID (either `email` or `subscriber_uuid` required)
+</ParamField>
+
+<ParamField body="campaign_uuid" type="string">
+  Campaign UUID (optional)
+</ParamField>
+
+<ParamField body="source" type="string" default="manual">
+  Source identifier (e.g., "manual", "custom-webhook")
+</ParamField>
+
+<ParamField body="meta" type="object">
+  Additional metadata as JSON object
+</ParamField>
+
+<ParamField body="created_at" type="string">
+  Bounce timestamp (ISO 8601 format, defaults to current time)
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="boolean">
+  Returns `true` on successful recording
+</ResponseField>
+
+---
+
+## Bounce Types
+
+### Hard Bounces
+
+Permanent delivery failures that indicate the email address is invalid or no longer exists:
+- Mailbox does not exist
+- Invalid domain
+- Email address rejected
+
+Hard bounces should result in removing or blocklisting the subscriber to maintain sender reputation.
+
+### Soft Bounces
+
+Temporary delivery failures that may succeed on retry:
+- Mailbox full
+- Server temporarily unavailable
+- Message too large
+
+Soft bounces are typically retried. After multiple soft bounces, the subscriber may be treated as a hard bounce.
+
+### Complaints
+
+When a recipient marks an email as spam:
+- Spam complaint via feedback loop
+- Abuse reports
+
+Complaints should result in immediate unsubscription or blocklisting to comply with anti-spam regulations.
+
+---
+
+## Bounce Webhooks
+
+listmonk supports bounce webhooks from major email service providers:
+
+### Amazon SES
+```
+POST /webhooks/service/ses
+```
+
+### SendGrid
+```
+POST /webhooks/service/sendgrid
+```
+
+### Postmark
+```
+POST /webhooks/service/postmark
+```
+
+### Forward Email
+```
+POST /webhooks/service/forwardemail
+```
+
+These webhooks automatically record bounces from the respective providers. Configure your email service provider to send bounce notifications to these endpoints.
+
+<Note>
+  Webhook URLs are public endpoints that don't require authentication. Ensure your provider is configured with the correct signature verification for security.
+</Note>

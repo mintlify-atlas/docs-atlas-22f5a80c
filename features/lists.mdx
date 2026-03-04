@@ -1,0 +1,381 @@
+---
+title: Lists
+description: Organize subscribers into lists with flexible opt-in modes and subscription management
+---
+
+Lists are containers for organizing subscribers. Each list can have different types, opt-in modes, and subscription settings.
+
+## List Data Model
+
+Each list has the following properties:
+
+- **ID**: Unique numeric identifier
+- **UUID**: Unique universal identifier for public URLs
+- **Name**: List name (1-500 characters)
+- **Type**: `public`, `private`, or `temporary`
+- **Opt-in**: `single` or `double`
+- **Status**: `active` or `archived`
+- **Tags**: Array of tags for organization
+- **Description**: Optional text description
+- **Created At**: Timestamp when list was created
+- **Updated At**: Timestamp of last modification
+
+## Creating Lists
+
+<Steps>
+  <Step title="Navigate to Lists">
+    Click **Lists** in the main menu
+  </Step>
+  <Step title="Create New List">
+    Click **New** and configure:
+    
+    - **Name**: Required, unique identifier
+    - **Type**: Choose list visibility and purpose
+    - **Opt-in Mode**: Single or double opt-in
+    - **Tags**: Add organizational tags (optional)
+    - **Description**: Add context for the list (optional)
+  </Step>
+  <Step title="Save and Use">
+    Lists are immediately available for subscriber assignment and campaigns
+  </Step>
+</Steps>
+
+## List Types
+
+<Tabs>
+  <Tab title="Public">
+    ### Public Lists
+    
+    Visible on public subscription pages and available for self-service subscription.
+    
+    **Use cases:**
+    - Newsletter signups
+    - Product announcements
+    - Marketing campaigns
+    - Blog updates
+    
+    <Note>
+      Public subscription pages are enabled via `app.enable_public_subscription_page` setting
+    </Note>
+  </Tab>
+  
+  <Tab title="Private">
+    ### Private Lists
+    
+    Hidden from public pages, only accessible via admin interface or API.
+    
+    **Use cases:**
+    - Internal team communications
+    - VIP customers
+    - Segmented audiences
+    - Beta testers
+    
+    <Warning>
+      Private lists do not appear on public subscription or archive pages
+    </Warning>
+  </Tab>
+  
+  <Tab title="Temporary">
+    ### Temporary Lists
+    
+    Designed for short-term campaigns or one-off communications.
+    
+    **Use cases:**
+    - Event attendees
+    - Limited-time promotions
+    - Seasonal campaigns
+    - A/B test segments
+    
+    <Note>
+      Temporary lists can be deleted when no longer needed, which removes all subscriber associations
+    </Note>
+  </Tab>
+</Tabs>
+
+## Opt-in Modes
+
+Lists support two confirmation workflows:
+
+<CardGroup cols={2}>
+  <Card title="Single Opt-in" icon="check">
+    ### Immediate Confirmation
+    
+    Subscribers are immediately confirmed when added to the list.
+    
+    **Characteristics:**
+    - Subscription status set to `confirmed` instantly
+    - No confirmation email required
+    - Faster list growth
+    - Higher potential for invalid emails
+    
+    **Best for:**
+    - Offline signups
+    - Imported contacts
+    - Gated content downloads
+  </Card>
+  
+  <Card title="Double Opt-in" icon="envelope">
+    ### Email Confirmation Required
+    
+    Subscribers must confirm via email before receiving campaigns.
+    
+    **Characteristics:**
+    - Subscription status starts as `unconfirmed`
+    - Confirmation email sent automatically
+    - Status changes to `confirmed` after click
+    - Better list quality
+    - GDPR compliant
+    
+    **Best for:**
+    - Public signup forms
+    - GDPR/privacy compliance
+    - High-quality engagement lists
+  </Card>
+</CardGroup>
+
+### Configuring Double Opt-in
+
+Double opt-in campaigns are sent automatically when enabled via `app.send_optin_confirmation` setting.
+
+Opt-in email includes:
+- Confirmation URL with list UUIDs
+- Unsubscribe URL
+- List-Unsubscribe headers (if enabled)
+
+## Public Subscription Pages
+
+Public lists appear on the self-service subscription page at `/subscription/form`.
+
+### Subscription Page Features
+
+<Steps>
+  <Step title="List Selection">
+    Subscribers can choose which public lists to join
+  </Step>
+  <Step title="Data Collection">
+    Form collects email, name, and optional custom attributes
+  </Step>
+  <Step title="Opt-in Processing">
+    - Single opt-in: Immediate confirmation
+    - Double opt-in: Sends confirmation email
+  </Step>
+  <Step title="Preference Management">
+    Subscribers can manage preferences via unique URLs
+  </Step>
+</Steps>
+
+<Note>
+  Enable public pages via Settings → App → `enable_public_subscription_page`
+</Note>
+
+## Managing Lists
+
+### Updating Lists
+
+Modify list properties:
+- Name, type, opt-in mode
+- Tags and description
+- Status (active/archived)
+
+<Warning>
+  Changing from single to double opt-in does not retroactively unconfirm existing subscribers
+</Warning>
+
+### Archiving Lists
+
+Set list status to `archived` to:
+- Hide from campaign list selection
+- Preserve data and relationships
+- Prevent new subscriptions
+- Maintain historical records
+
+### Deleting Lists
+
+Deleting a list:
+- Removes all subscriber-list relationships
+- Deletes from `subscriber_lists` table
+- Campaign-list relationships are preserved with list name
+- Cannot be undone
+
+<Warning>
+  Deleting popular lists can create many orphan subscribers (not subscribed to any list)
+</Warning>
+
+## List Organization
+
+### Tags
+
+Use tags to categorize lists:
+
+```json
+["newsletter", "product-updates", "weekly"]
+```
+
+Tags are stored as PostgreSQL arrays (VARCHAR[100][]) and can be used for:
+- Filtering in admin interface
+- Organizing related lists
+- Bulk operations
+
+### Description Field
+
+Add context and notes:
+- Purpose of the list
+- Target audience
+- Campaign schedule
+- Internal documentation
+
+## Subscriber-List Relationships
+
+The `subscriber_lists` table manages the many-to-many relationship:
+
+### Subscription Statuses
+
+<Tabs>
+  <Tab title="Unconfirmed">
+    Awaiting double opt-in confirmation. Subscribers with this status:
+    - Do not receive regular campaigns
+    - Can receive opt-in campaigns (type: `optin`)
+    - Can be manually confirmed
+  </Tab>
+  
+  <Tab title="Confirmed">
+    Active subscriptions. Subscribers with this status:
+    - Receive all campaigns sent to the list
+    - Completed double opt-in (if required)
+    - Can unsubscribe at any time
+  </Tab>
+  
+  <Tab title="Unsubscribed">
+    Previously subscribed, now opted out. Subscribers with this status:
+    - Do not receive campaigns
+    - Can re-subscribe via preference page
+    - Preserve subscription history
+  </Tab>
+</Tabs>
+
+### Meta Field
+
+Each subscription can have custom metadata (JSONB):
+
+```json
+{
+  "source": "landing-page-A",
+  "subscribed_at": "2024-01-15",
+  "referrer": "facebook"
+}
+```
+
+## List Analytics
+
+View subscriber counts per list with breakdown by status:
+
+```sql
+SELECT 
+  list_id,
+  status,
+  COUNT(*) as subscriber_count
+FROM subscriber_lists
+GROUP BY list_id, status
+```
+
+Materialized view `mat_list_subscriber_stats` provides cached counts for performance.
+
+## Querying Lists
+
+### Filter Options
+
+- **Query**: Search by name
+- **Type**: Filter by `public`, `private`, `temporary`
+- **Opt-in**: Filter by `single` or `double`
+- **Status**: Filter by `active` or `archived`
+- **Tags**: Filter by tag values
+
+### Minimal Mode
+
+For performance, use `?minimal=true` to retrieve lists without JOIN operations (excludes subscriber counts).
+
+## Campaign Integration
+
+Sending campaigns to lists:
+
+1. Select one or more target lists when creating a campaign
+2. Campaign reaches subscribers with:
+   - Status: `enabled` (subscriber level)
+   - Subscription status: `confirmed` (for regular campaigns)
+   - For opt-in campaigns: `unconfirmed` status
+
+### List Names in Campaigns
+
+Campaigns store list names even if lists are deleted:
+
+```sql
+CREATE TABLE campaign_lists (
+    campaign_id  INTEGER REFERENCES campaigns(id),
+    list_id      INTEGER NULL REFERENCES lists(id),
+    list_name    TEXT NOT NULL
+)
+```
+
+## API Examples
+
+### Create List
+
+```bash
+curl -u 'username:password' -X POST 'http://localhost:9000/api/lists' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Product Updates",
+    "type": "public",
+    "optin": "double",
+    "tags": ["newsletter", "weekly"],
+    "description": "Weekly product announcements and updates"
+  }'
+```
+
+### Query Lists
+
+```bash
+# Get all active public lists
+curl -u 'username:password' 'http://localhost:9000/api/lists?type=public&status=active'
+
+# Get lists with specific tag
+curl -u 'username:password' 'http://localhost:9000/api/lists?tag=newsletter'
+```
+
+## Database Schema
+
+```sql
+CREATE TABLE lists (
+    id              SERIAL PRIMARY KEY,
+    uuid            UUID NOT NULL UNIQUE,
+    name            TEXT NOT NULL,
+    type            list_type NOT NULL,
+    optin           list_optin NOT NULL DEFAULT 'single',
+    status          list_status NOT NULL DEFAULT 'active',
+    tags            VARCHAR(100)[],
+    description     TEXT NOT NULL DEFAULT '',
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TYPE list_type AS ENUM ('public', 'private', 'temporary');
+CREATE TYPE list_optin AS ENUM ('single', 'double');
+CREATE TYPE list_status AS ENUM ('active', 'archived');
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Double Opt-in" icon="shield-check">
+    For public-facing lists to ensure compliance and list quality
+  </Card>
+  <Card title="Tag Consistently" icon="tags">
+    Develop a tagging system for easy filtering and organization
+  </Card>
+  <Card title="Document Lists" icon="file-text">
+    Use descriptions to explain list purpose and audience
+  </Card>
+  <Card title="Archive Instead of Delete" icon="archive">
+    Preserve historical data by archiving unused lists
+  </Card>
+</CardGroup>

@@ -1,0 +1,519 @@
+---
+title: Transactional Emails
+description: Send transactional emails via the API for password resets, notifications, and alerts
+---
+
+listmonk's transactional email API allows you to send one-off emails to subscribers or arbitrary email addresses, perfect for password resets, order confirmations, and notifications.
+
+## Transactional Email Overview
+
+Transactional emails are different from campaigns:
+
+- Sent immediately to individual recipients
+- Use templates for consistent formatting
+- Support custom data variables
+- Can be sent to non-subscribers (external mode)
+- Support file attachments
+
+## API Endpoint
+
+The transactional email endpoint is defined in `cmd/handlers.go:195`:
+
+```
+POST /api/tx
+```
+
+Requires the `tx:send` permission.
+
+## Message Format and Parameters
+
+The transactional message structure is defined in `models/messages.go:47-71`.
+
+### Basic Request
+
+```json
+{
+  "subscriber_emails": ["user@example.com"],
+  "template_id": 1,
+  "from_email": "noreply@yoursite.com",
+  "data": {
+    "name": "John",
+    "reset_url": "https://yoursite.com/reset/token123"
+  }
+}
+```
+
+### Complete API Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `subscriber_emails` | array | Conditional | List of recipient email addresses |
+| `subscriber_ids` | array | Conditional | List of subscriber IDs from database |
+| `subscriber_mode` | string | No | How to handle recipients: `default`, `fallback`, `external` |
+| `template_id` | integer | Yes | ID of template to use |
+| `from_email` | string | No | Sender email (defaults to system from_email) |
+| `subject` | string | No | Email subject (can override template subject) |
+| `data` | object | No | Custom template variables |
+| `headers` | array | No | Custom email headers |
+| `content_type` | string | No | Message content type |
+| `messenger` | string | No | Messenger to use (defaults to `email`) |
+
+<Warning>
+You must provide either `subscriber_emails` OR `subscriber_ids`, but not both.
+</Warning>
+
+## Subscriber Modes
+
+Transactional emails support three subscriber modes (defined in `models/messages.go:41-45`):
+
+### Default Mode
+
+```json
+{
+  "subscriber_mode": "default",
+  "subscriber_emails": ["existing@subscriber.com"],
+  "template_id": 1
+}
+```
+
+- Looks up subscriber in database
+- Fails if subscriber doesn't exist
+- Uses subscriber's profile data in template
+- Can use `subscriber_ids` or `subscriber_emails`
+
+### Fallback Mode
+
+```json
+{
+  "subscriber_mode": "fallback",
+  "subscriber_emails": ["maybe@subscriber.com"],
+  "template_id": 1,
+  "data": {"name": "User"}
+}
+```
+
+- Tries to find subscriber in database
+- If not found, creates ephemeral subscriber for this email only
+- Does NOT add to database
+- Must use `subscriber_emails` (IDs not allowed)
+
+### External Mode
+
+```json
+{
+  "subscriber_mode": "external",
+  "subscriber_emails": ["anyone@example.com"],
+  "template_id": 1,
+  "data": {"name": "Guest"}
+}
+```
+
+- Always creates ephemeral subscriber
+- Never checks database
+- Perfect for sending to non-subscribers
+- Must use `subscriber_emails` (IDs not allowed)
+
+The mode validation is handled in `cmd/tx.go:196-221`.
+
+## Template Usage
+
+Transactional emails use templates for consistent formatting.
+
+### Creating a Transactional Template
+
+1. Go to Settings → Templates
+2. Create a new template with type "Transactional"
+3. Use template variables:
+
+```html
+<h1>Hello {{ .Subscriber.Name }}!</h1>
+
+<p>Your custom data: {{ .Tx.Data.custom_field }}</p>
+
+<p>Click here to reset your password:</p>
+<a href="{{ .Tx.Data.reset_url }}">Reset Password</a>
+```
+
+### Available Template Variables
+
+- `{{ .Subscriber.Email }}` - Recipient email
+- `{{ .Subscriber.Name }}` - Subscriber name
+- `{{ .Subscriber.UUID }}` - Subscriber UUID
+- `{{ .Subscriber.Attribs }}` - Custom subscriber attributes
+- `{{ .Tx.Data.* }}` - Any custom data passed in request
+- `{{ .Tx.Subject }}` - Email subject
+
+Template rendering is handled in `models/messages.go:73-120`.
+
+### Dynamic Subject Lines
+
+You can use template variables in the subject:
+
+```json
+{
+  "subject": "Hello {{ .Subscriber.Name }}, reset your password",
+  "subscriber_emails": ["user@example.com"],
+  "template_id": 1
+}
+```
+
+Subjects with `{{` are automatically compiled as templates (`models/messages.go:94-101`).
+
+## File Attachments
+
+Send emails with file attachments using multipart form data.
+
+### Example with cURL
+
+```bash
+curl -X POST http://localhost:9000/api/tx \
+  -H "Authorization: Bearer your-api-token" \
+  -F 'data={
+    "subscriber_emails": ["user@example.com"],
+    "template_id": 1,
+    "subject": "Your invoice",
+    "data": {"invoice_number": "INV-001"}
+  }' \
+  -F 'file=@/path/to/invoice.pdf' \
+  -F 'file=@/path/to/receipt.pdf'
+```
+
+### Attachment Processing
+
+Attachment handling is in `cmd/tx.go:20-59`:
+
+- Accepts multiple files in `file` field
+- Extracts filename and content type
+- Encodes as base64 for email transmission
+- Supports any file type
+
+<Info>
+Attachment size is limited by your SMTP server configuration and `max_file_size` setting.
+</Info>
+
+## Custom Email Headers
+
+Add custom headers to transactional emails:
+
+```json
+{
+  "subscriber_emails": ["user@example.com"],
+  "template_id": 1,
+  "headers": [
+    {"X-Custom-Header": "value"},
+    {"Reply-To": "support@yoursite.com"}
+  ]
+}
+```
+
+Headers are processed in `cmd/tx.go:154-162`.
+
+## Use Cases
+
+<Accordion title="Password Reset Emails">
+```json
+{
+  "subscriber_mode": "fallback",
+  "subscriber_emails": ["user@example.com"],
+  "template_id": 2,
+  "subject": "Reset your password",
+  "data": {
+    "reset_url": "https://yoursite.com/reset?token=abc123",
+    "expiry": "1 hour"
+  }
+}
+```
+</Accordion>
+
+<Accordion title="Order Confirmation">
+```json
+{
+  "subscriber_mode": "external",
+  "subscriber_emails": ["customer@example.com"],
+  "template_id": 3,
+  "subject": "Order #{{.Tx.Data.order_id}} confirmed",
+  "data": {
+    "order_id": "12345",
+    "items": ["Product A", "Product B"],
+    "total": "$99.99"
+  }
+}
+```
+</Accordion>
+
+<Accordion title="Welcome Email with Attachment">
+```bash
+curl -X POST http://localhost:9000/api/tx \
+  -F 'data={
+    "subscriber_ids": [123],
+    "template_id": 4,
+    "subject": "Welcome to our service!",
+    "data": {"guide_url": "https://yoursite.com/guide"}
+  }' \
+  -F 'file=@welcome-guide.pdf'
+```
+</Accordion>
+
+<Accordion title="System Notifications">
+```json
+{
+  "subscriber_mode": "external",
+  "subscriber_emails": ["admin@yoursite.com"],
+  "template_id": 5,
+  "subject": "System Alert: High CPU Usage",
+  "data": {
+    "server": "web-01",
+    "cpu_usage": "95%",
+    "timestamp": "2024-01-15 10:30:00"
+  }
+}
+```
+</Accordion>
+
+## Rate Limiting
+
+Transactional emails are subject to your SMTP server's rate limits and listmonk's configuration.
+
+### Relevant Settings
+
+From `schema.sql:236-237`:
+
+```toml
+app.message_rate = 10          # Messages per second
+app.concurrency = 10            # Concurrent connections
+```
+
+### Rate Limiting Behavior
+
+The message manager (`cmd/tx.go:164`) pushes messages to a queue:
+
+- Messages are processed by the manager's worker pool
+- Respects `message_rate` throttling
+- Failed messages are not automatically retried
+- Check SMTP logs for delivery status
+
+<Warning>
+High-volume transactional sending may impact campaign delivery. Consider dedicated SMTP servers for transactional vs. bulk email.
+</Warning>
+
+## Error Handling
+
+The API returns detailed error responses for troubleshooting.
+
+### Common Errors
+
+**400 Bad Request** - Invalid parameters
+```json
+{
+  "message": "one or more values in 'subscriber_emails' are invalid"
+}
+```
+
+**400 Bad Request** - Subscriber not found (default mode)
+```json
+{
+  "message": "subscriber not found"
+}
+```
+
+**400 Bad Request** - Template not found
+```json
+{
+  "message": "template 999 not found"
+}
+```
+
+**500 Internal Server Error** - Rendering error
+```json
+{
+  "message": "error rendering template"
+}
+```
+
+### Handling Errors in Code
+
+```python
+import requests
+
+response = requests.post(
+    'http://localhost:9000/api/tx',
+    headers={'Authorization': 'Bearer token'},
+    json={
+        'subscriber_emails': ['user@example.com'],
+        'template_id': 1,
+        'data': {'name': 'John'}
+    }
+)
+
+if response.status_code == 200:
+    print('Email sent successfully')
+else:
+    print(f'Error: {response.json()["message"]}')
+```
+
+## Multiple Recipients
+
+Send the same email to multiple recipients:
+
+```json
+{
+  "subscriber_emails": [
+    "user1@example.com",
+    "user2@example.com",
+    "user3@example.com"
+  ],
+  "template_id": 1,
+  "data": {"message": "Shared notification"}
+}
+```
+
+Processing logic (`cmd/tx.go:88-168`):
+
+- Each recipient gets an individual email
+- Templates are rendered per-recipient
+- If one fails, others still send
+- Returns error if all recipients fail
+
+## Integration Examples
+
+<CodeGroup>
+```python Python
+import requests
+
+def send_password_reset(email, reset_token):
+    response = requests.post(
+        'http://localhost:9000/api/tx',
+        headers={'Authorization': 'Bearer your-token'},
+        json={
+            'subscriber_mode': 'fallback',
+            'subscriber_emails': [email],
+            'template_id': 2,
+            'data': {
+                'reset_url': f'https://yoursite.com/reset?token={reset_token}'
+            }
+        }
+    )
+    return response.status_code == 200
+```
+
+```javascript Node.js
+const axios = require('axios');
+
+async function sendOrderConfirmation(email, order) {
+  try {
+    await axios.post('http://localhost:9000/api/tx', {
+      subscriber_mode: 'external',
+      subscriber_emails: [email],
+      template_id: 3,
+      data: {
+        order_id: order.id,
+        total: order.total,
+        items: order.items
+      }
+    }, {
+      headers: { 'Authorization': 'Bearer your-token' }
+    });
+    return true;
+  } catch (error) {
+    console.error('Failed to send email:', error.response.data);
+    return false;
+  }
+}
+```
+
+```go Go
+package main
+
+import (
+    "bytes"
+    "encoding/json"
+    "net/http"
+)
+
+func sendWelcomeEmail(email string) error {
+    payload := map[string]interface{}{
+        "subscriber_mode":   "fallback",
+        "subscriber_emails": []string{email},
+        "template_id":       1,
+        "data": map[string]string{
+            "name": "New User",
+        },
+    }
+    
+    body, _ := json.Marshal(payload)
+    req, _ := http.NewRequest("POST", "http://localhost:9000/api/tx", bytes.NewBuffer(body))
+    req.Header.Set("Authorization", "Bearer your-token")
+    req.Header.Set("Content-Type", "application/json")
+    
+    client := &http.Client{}
+    resp, err := client.Do(req)
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+    
+    if resp.StatusCode != 200 {
+        return fmt.Errorf("failed to send email: %d", resp.StatusCode)
+    }
+    return nil
+}
+```
+
+```php PHP
+<?php
+function sendNotification($email, $message) {
+    $data = [
+        'subscriber_mode' => 'external',
+        'subscriber_emails' => [$email],
+        'template_id' => 5,
+        'data' => ['message' => $message]
+    ];
+    
+    $ch = curl_init('http://localhost:9000/api/tx');
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Authorization: Bearer your-token',
+        'Content-Type: application/json'
+    ]);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    
+    $response = curl_exec($ch);
+    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    return $status === 200;
+}
+?>
+```
+</CodeGroup>
+
+## Best Practices
+
+<Steps>
+  <Step title="Use appropriate subscriber modes">
+    - `default` for existing subscribers
+    - `fallback` for user accounts that may or may not be subscribers
+    - `external` for guest users or system emails
+  </Step>
+  
+  <Step title="Create dedicated templates">
+    Separate templates for different email types (password resets, notifications, etc.)
+  </Step>
+  
+  <Step title="Validate email addresses">
+    Always validate email addresses before sending to avoid bounce issues
+  </Step>
+  
+  <Step title="Include meaningful data">
+    Pass all necessary context in the `data` object to avoid missing information
+  </Step>
+  
+  <Step title="Handle errors gracefully">
+    Implement retry logic for transient failures and log errors for debugging
+  </Step>
+  
+  <Step title="Monitor sending rate">
+    Track transactional email volume to ensure it doesn't exceed SMTP limits
+  </Step>
+</Steps>

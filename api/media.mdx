@@ -1,0 +1,278 @@
+---
+title: 'Media API'
+description: 'Upload and manage media files for campaigns'
+---
+
+## Get all media
+
+<CodeGroup>
+```bash GET /api/media
+curl -u 'username:password' 'https://listmonk.mysite.com/api/media' \
+  -G \
+  -d 'page=1' \
+  -d 'per_page=50'
+```
+</CodeGroup>
+
+Retrieves all uploaded media files with pagination.
+
+**Authentication:** Required  
+**Permission:** `media:get`
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="20">
+  Number of results per page
+</ParamField>
+
+<ParamField query="query" type="string">
+  Search term to filter media by filename
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="object">
+  <Expandable title="properties">
+    <ResponseField name="results" type="array">
+      Array of media objects
+      <Expandable title="media object">
+        <ResponseField name="id" type="integer">
+          Media ID
+        </ResponseField>
+        <ResponseField name="uuid" type="string">
+          Unique UUID
+        </ResponseField>
+        <ResponseField name="filename" type="string">
+          Original filename
+        </ResponseField>
+        <ResponseField name="thumb_url" type="string">
+          Thumbnail URL (for images)
+        </ResponseField>
+        <ResponseField name="url" type="string">
+          Full-size media URL
+        </ResponseField>
+        <ResponseField name="content_type" type="string">
+          MIME type (e.g., "image/png", "image/jpeg")
+        </ResponseField>
+        <ResponseField name="meta" type="object">
+          Metadata including width and height for images
+        </ResponseField>
+        <ResponseField name="provider" type="string">
+          Storage provider (e.g., "filesystem", "s3")
+        </ResponseField>
+        <ResponseField name="created_at" type="string">
+          Upload timestamp
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="total" type="integer">
+      Total number of media files
+    </ResponseField>
+    <ResponseField name="per_page" type="integer">
+      Results per page
+    </ResponseField>
+    <ResponseField name="page" type="integer">
+      Current page number
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Get media
+
+<CodeGroup>
+```bash GET /api/media/:id
+curl -u 'username:password' 'https://listmonk.mysite.com/api/media/1'
+```
+</CodeGroup>
+
+Retrieves a single media file by ID.
+
+**Authentication:** Required  
+**Permission:** `media:get`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Media ID
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="object">
+  Returns a single media object with the same structure as the query endpoint
+</ResponseField>
+
+---
+
+## Upload media
+
+<CodeGroup>
+```bash POST /api/media
+curl -u 'username:password' 'https://listmonk.mysite.com/api/media' \
+  -F 'file=@image.png'
+```
+</CodeGroup>
+
+Uploads a media file.
+
+**Authentication:** Required  
+**Permission:** `media:manage`
+
+### Request Body
+
+<ParamField body="file" type="file" required>
+  File to upload (multipart/form-data)
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="object">
+  Returns the uploaded media object
+  <Expandable title="properties">
+    <ResponseField name="id" type="integer">
+      Media ID
+    </ResponseField>
+    <ResponseField name="uuid" type="string">
+      Unique UUID
+    </ResponseField>
+    <ResponseField name="filename" type="string">
+      Sanitized filename
+    </ResponseField>
+    <ResponseField name="url" type="string">
+      Public URL to access the file
+    </ResponseField>
+    <ResponseField name="thumb_url" type="string">
+      Thumbnail URL (for images)
+    </ResponseField>
+    <ResponseField name="content_type" type="string">
+      MIME type
+    </ResponseField>
+    <ResponseField name="meta" type="object">
+      Metadata (width/height for images)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Supported File Types
+
+By default, the following file types are supported:
+- Images: `.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`
+
+File type restrictions can be configured in the listmonk settings. Check with your administrator for allowed file types.
+
+### File Processing
+
+- **Images** (PNG, JPG, GIF): Automatically generates a thumbnail (250px width)
+- **SVG**: Uses the original file as thumbnail
+- **Other files**: No thumbnail generated
+
+### Example: Upload Image
+
+```bash
+curl -u 'username:password' 'https://listmonk.mysite.com/api/media' \
+  -F 'file=@/path/to/newsletter-header.png'
+```
+
+Response:
+```json
+{
+  "data": {
+    "id": 1,
+    "uuid": "5e6e3e8f-6b5a-4c8d-9c3a-1f2e3c4b5a6d",
+    "filename": "newsletter-header.png",
+    "url": "https://listmonk.mysite.com/uploads/newsletter-header.png",
+    "thumb_url": "https://listmonk.mysite.com/uploads/thumb_newsletter-header.png",
+    "content_type": "image/png",
+    "meta": {
+      "width": 800,
+      "height": 600
+    },
+    "provider": "filesystem",
+    "created_at": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+---
+
+## Delete media
+
+<CodeGroup>
+```bash DELETE /api/media/:id
+curl -u 'username:password' -X DELETE 'https://listmonk.mysite.com/api/media/1'
+```
+</CodeGroup>
+
+Deletes a media file and its thumbnail.
+
+**Authentication:** Required  
+**Permission:** `media:manage`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Media ID
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="boolean">
+  Returns `true` on successful deletion
+</ResponseField>
+
+<Warning>
+  Deleting media files that are referenced in campaigns will break image links in those campaigns. Ensure media files are not in use before deleting.
+</Warning>
+
+---
+
+## Using Media in Campaigns
+
+### Insert Media in Campaign Body
+
+Once uploaded, media can be referenced in campaign HTML:
+
+```html
+<img src="https://listmonk.mysite.com/uploads/newsletter-header.png" 
+     alt="Newsletter Header" />
+```
+
+### Attach Media to Campaign
+
+When creating or updating a campaign, you can attach media files:
+
+```bash
+curl -u 'username:password' 'https://listmonk.mysite.com/api/campaigns' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Newsletter",
+    "subject": "Monthly Update",
+    "lists": [1],
+    "body": "<p>Newsletter content</p>",
+    "media": [1, 2, 3]
+  }'
+```
+
+Attached media files will be embedded or attached to the email based on campaign settings.
+
+---
+
+## Storage Providers
+
+listmonk supports multiple storage providers for media files:
+
+### Filesystem (Default)
+Files are stored on the server's local filesystem in the `uploads` directory.
+
+### Amazon S3
+Files are stored in an S3-compatible object storage.
+
+### Configuration
+
+Storage provider settings are configured in the listmonk settings. Contact your administrator for provider-specific configurations.

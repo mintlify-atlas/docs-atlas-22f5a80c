@@ -1,0 +1,646 @@
+---
+title: 'Campaigns API'
+description: 'Manage email campaigns including creation, scheduling, testing, and analytics'
+---
+
+## Query campaigns
+
+<CodeGroup>
+```bash GET /api/campaigns
+curl -u 'username:password' 'https://listmonk.mysite.com/api/campaigns' \
+  -G \
+  -d 'page=1' \
+  -d 'status=running' \
+  -d 'query=newsletter'
+```
+</CodeGroup>
+
+Retrieves a paginated list of campaigns.
+
+**Authentication:** Required  
+**Permission:** `campaigns:get_all` or `campaigns:get`
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="1">
+  Page number
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="20">
+  Results per page
+</ParamField>
+
+<ParamField query="query" type="string">
+  Search term to filter campaigns by name
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filter by status (can be specified multiple times): `draft`, `scheduled`, `running`, `paused`, `finished`, `cancelled`
+</ParamField>
+
+<ParamField query="tag" type="string">
+  Filter by tag (can be specified multiple times)
+</ParamField>
+
+<ParamField query="order_by" type="string" default="created_at">
+  Field to order by
+</ParamField>
+
+<ParamField query="order" type="string" default="desc">
+  Sort order: `asc` or `desc`
+</ParamField>
+
+<ParamField query="no_body" type="boolean" default="false">
+  If true, excludes campaign body from response
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="object">
+  <Expandable title="properties">
+    <ResponseField name="results" type="array">
+      Array of campaign objects
+      <Expandable title="campaign object">
+        <ResponseField name="id" type="integer">
+          Campaign ID
+        </ResponseField>
+        <ResponseField name="uuid" type="string">
+          Unique UUID
+        </ResponseField>
+        <ResponseField name="type" type="string">
+          Campaign type: `regular` or `optin`
+        </ResponseField>
+        <ResponseField name="name" type="string">
+          Campaign name
+        </ResponseField>
+        <ResponseField name="subject" type="string">
+          Email subject line
+        </ResponseField>
+        <ResponseField name="from_email" type="string">
+          From email address
+        </ResponseField>
+        <ResponseField name="body" type="string">
+          Campaign body (HTML/text)
+        </ResponseField>
+        <ResponseField name="body_source" type="string">
+          Original body source (for visual campaigns)
+        </ResponseField>
+        <ResponseField name="altbody" type="string">
+          Plain text alternative body
+        </ResponseField>
+        <ResponseField name="send_at" type="string">
+          Scheduled send time (null for immediate)
+        </ResponseField>
+        <ResponseField name="status" type="string">
+          Status: `draft`, `scheduled`, `running`, `paused`, `finished`, `cancelled`
+        </ResponseField>
+        <ResponseField name="content_type" type="string">
+          Content type: `richtext`, `html`, `markdown`, `plain`, `visual`
+        </ResponseField>
+        <ResponseField name="tags" type="array">
+          Array of tags
+        </ResponseField>
+        <ResponseField name="headers" type="array">
+          Custom email headers
+        </ResponseField>
+        <ResponseField name="template_id" type="integer">
+          Template ID
+        </ResponseField>
+        <ResponseField name="messenger" type="string">
+          Messenger backend: `email` or SMTP name
+        </ResponseField>
+        <ResponseField name="lists" type="array">
+          Target lists with IDs and names
+        </ResponseField>
+        <ResponseField name="started_at" type="string">
+          When campaign started sending
+        </ResponseField>
+        <ResponseField name="to_send" type="integer">
+          Total number of emails to send
+        </ResponseField>
+        <ResponseField name="sent" type="integer">
+          Number of emails sent
+        </ResponseField>
+        <ResponseField name="views" type="integer">
+          Number of views
+        </ResponseField>
+        <ResponseField name="clicks" type="integer">
+          Number of clicks
+        </ResponseField>
+        <ResponseField name="bounces" type="integer">
+          Number of bounces
+        </ResponseField>
+        <ResponseField name="created_at" type="string">
+          Creation timestamp
+        </ResponseField>
+        <ResponseField name="updated_at" type="string">
+          Last update timestamp
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="total" type="integer">
+      Total campaigns
+    </ResponseField>
+    <ResponseField name="per_page" type="integer">
+      Results per page
+    </ResponseField>
+    <ResponseField name="page" type="integer">
+      Current page
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Get campaign
+
+<CodeGroup>
+```bash GET /api/campaigns/:id
+curl -u 'username:password' 'https://listmonk.mysite.com/api/campaigns/1'
+```
+</CodeGroup>
+
+Retrieves a single campaign by ID.
+
+**Authentication:** Required  
+**Permission:** `campaigns:get_all` or `campaigns:get`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Campaign ID
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="no_body" type="boolean" default="false">
+  If true, excludes body from response
+</ParamField>
+
+---
+
+## Create campaign
+
+<CodeGroup>
+```bash POST /api/campaigns
+curl -u 'username:password' 'https://listmonk.mysite.com/api/campaigns' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Monthly Newsletter",
+    "subject": "Newsletter for {{ .Subscriber.FirstName }}",
+    "lists": [1, 2],
+    "type": "regular",
+    "content_type": "richtext",
+    "body": "<p>Hello {{ .Subscriber.FirstName }}!</p>",
+    "altbody": "Hello!",
+    "from_email": "newsletter@example.com",
+    "messenger": "email",
+    "template_id": 1,
+    "tags": ["newsletter"],
+    "send_at": "2024-12-01T10:00:00Z"
+  }'
+```
+</CodeGroup>
+
+Creates a new campaign in draft status.
+
+**Authentication:** Required  
+**Permission:** `campaigns:manage_all` or `campaigns:manage`
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  Campaign name (max 2000 characters)
+</ParamField>
+
+<ParamField body="subject" type="string" required>
+  Email subject line (supports template variables)
+</ParamField>
+
+<ParamField body="lists" type="array" required>
+  Array of list IDs to send to
+</ParamField>
+
+<ParamField body="body" type="string" required>
+  Campaign body content
+</ParamField>
+
+<ParamField body="type" type="string" default="regular">
+  Campaign type: `regular` or `optin`
+</ParamField>
+
+<ParamField body="content_type" type="string" default="richtext">
+  Content type: `richtext`, `html`, `markdown`, `plain`, `visual`
+</ParamField>
+
+<ParamField body="from_email" type="string">
+  From email address (defaults to system setting)
+</ParamField>
+
+<ParamField body="altbody" type="string">
+  Plain text alternative body
+</ParamField>
+
+<ParamField body="send_at" type="string">
+  ISO 8601 timestamp for scheduled sending (null for immediate)
+</ParamField>
+
+<ParamField body="messenger" type="string" default="email">
+  Messenger backend to use
+</ParamField>
+
+<ParamField body="template_id" type="integer">
+  Template ID to use
+</ParamField>
+
+<ParamField body="tags" type="array">
+  Array of tags
+</ParamField>
+
+<ParamField body="headers" type="array">
+  Custom email headers (array of objects with key-value pairs)
+</ParamField>
+
+<ParamField body="media" type="array">
+  Array of media IDs to attach
+</ParamField>
+
+---
+
+## Update campaign
+
+<CodeGroup>
+```bash PUT /api/campaigns/:id
+curl -u 'username:password' -X PUT 'https://listmonk.mysite.com/api/campaigns/1' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Updated Newsletter",
+    "subject": "New Subject",
+    "body": "<p>Updated content</p>"
+  }'
+```
+</CodeGroup>
+
+Updates a campaign. Only campaigns in `draft`, `scheduled`, or `paused` status can be updated.
+
+**Authentication:** Required  
+**Permission:** `campaigns:manage_all` or `campaigns:manage`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Campaign ID
+</ParamField>
+
+### Request Body
+
+Same fields as create campaign. Only provided fields will be updated.
+
+---
+
+## Update campaign status
+
+<CodeGroup>
+```bash PUT /api/campaigns/:id/status
+curl -u 'username:password' -X PUT 'https://listmonk.mysite.com/api/campaigns/1/status' \
+  -H 'Content-Type: application/json' \
+  -d '{"status": "running"}'
+```
+</CodeGroup>
+
+Changes a campaign's status to start, pause, or cancel it.
+
+**Authentication:** Required  
+**Permission:** `campaigns:manage_all` or `campaigns:manage`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Campaign ID
+</ParamField>
+
+### Request Body
+
+<ParamField body="status" type="string" required>
+  New status:
+  - `running`: Start sending the campaign
+  - `paused`: Pause a running campaign
+  - `scheduled`: Schedule a draft campaign
+  - `cancelled`: Cancel a campaign
+</ParamField>
+
+---
+
+## Update campaign archive settings
+
+<CodeGroup>
+```bash PUT /api/campaigns/:id/archive
+curl -u 'username:password' -X PUT 'https://listmonk.mysite.com/api/campaigns/1/archive' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "archive": true,
+    "archive_template_id": 1,
+    "archive_slug": "monthly-newsletter-2024-01",
+    "archive_meta": {"public": true}
+  }'
+```
+</CodeGroup>
+
+Configures campaign archiving for public viewing.
+
+**Authentication:** Required  
+**Permission:** `campaigns:manage_all` or `campaigns:manage`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Campaign ID
+</ParamField>
+
+### Request Body
+
+<ParamField body="archive" type="boolean" required>
+  Enable/disable archiving
+</ParamField>
+
+<ParamField body="archive_template_id" type="integer">
+  Template ID for archive page
+</ParamField>
+
+<ParamField body="archive_slug" type="string">
+  Custom URL slug for archive page
+</ParamField>
+
+<ParamField body="archive_meta" type="object">
+  Custom metadata for archive
+</ParamField>
+
+---
+
+## Delete campaign
+
+<CodeGroup>
+```bash DELETE /api/campaigns/:id
+curl -u 'username:password' -X DELETE 'https://listmonk.mysite.com/api/campaigns/1'
+```
+</CodeGroup>
+
+Deletes a campaign. Only `draft` and `scheduled` campaigns can be deleted.
+
+**Authentication:** Required  
+**Permission:** `campaigns:manage_all` or `campaigns:manage`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Campaign ID
+</ParamField>
+
+---
+
+## Delete campaigns (bulk)
+
+<CodeGroup>
+```bash DELETE /api/campaigns
+curl -u 'username:password' -X DELETE 'https://listmonk.mysite.com/api/campaigns?id=1&id=2'
+```
+</CodeGroup>
+
+Deletes multiple campaigns.
+
+**Authentication:** Required  
+**Permission:** `campaigns:manage_all` or `campaigns:manage`
+
+### Query Parameters
+
+<ParamField query="id" type="integer">
+  Campaign ID (can be specified multiple times)
+</ParamField>
+
+<ParamField query="query" type="string">
+  Search term
+</ParamField>
+
+<ParamField query="all" type="boolean">
+  Delete all campaigns
+</ParamField>
+
+---
+
+## Get running campaign stats
+
+<CodeGroup>
+```bash GET /api/campaigns/running/stats
+curl -u 'username:password' 'https://listmonk.mysite.com/api/campaigns/running/stats'
+```
+</CodeGroup>
+
+Retrieves real-time statistics for currently running campaigns.
+
+**Authentication:** Required  
+**Permission:** `campaigns:get_all` or `campaigns:get`
+
+### Response
+
+<ResponseField name="data" type="array">
+  Array of campaign stats with send rates
+  <Expandable title="stats object">
+    <ResponseField name="id" type="integer">
+      Campaign ID
+    </ResponseField>
+    <ResponseField name="status" type="string">
+      Current status
+    </ResponseField>
+    <ResponseField name="to_send" type="integer">
+      Total to send
+    </ResponseField>
+    <ResponseField name="sent" type="integer">
+      Number sent
+    </ResponseField>
+    <ResponseField name="started_at" type="string">
+      Start time
+    </ResponseField>
+    <ResponseField name="rate" type="integer">
+      Current send rate (per minute)
+    </ResponseField>
+    <ResponseField name="net_rate" type="integer">
+      Average send rate since start
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Preview campaign
+
+<CodeGroup>
+```bash GET /api/campaigns/:id/preview
+curl -u 'username:password' 'https://listmonk.mysite.com/api/campaigns/1/preview'
+```
+
+```bash POST /api/campaigns/:id/preview
+curl -u 'username:password' -X POST 'https://listmonk.mysite.com/api/campaigns/1/preview' \
+  -d 'body=<p>Preview content</p>' \
+  -d 'content_type=html'
+```
+</CodeGroup>
+
+Previews campaign content with rendered template.
+
+**Authentication:** Required  
+**Permission:** `campaigns:get_all` or `campaigns:get`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Campaign ID
+</ParamField>
+
+### Request Body (POST only)
+
+<ParamField body="body" type="string">
+  Body content to preview
+</ParamField>
+
+<ParamField body="content_type" type="string">
+  Content type
+</ParamField>
+
+<ParamField body="template_id" type="integer">
+  Template ID to use
+</ParamField>
+
+---
+
+## Convert campaign content
+
+<CodeGroup>
+```bash POST /api/campaigns/:id/content
+curl -u 'username:password' -X POST 'https://listmonk.mysite.com/api/campaigns/1/content' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "body": "# Markdown Content\n\nHello!",
+    "from": "markdown",
+    "to": "html"
+  }'
+```
+</CodeGroup>
+
+Converts campaign content between formats (e.g., Markdown to HTML).
+
+**Authentication:** Required  
+**Permission:** `campaigns:manage_all` or `campaigns:manage`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Campaign ID
+</ParamField>
+
+### Request Body
+
+<ParamField body="body" type="string" required>
+  Content to convert
+</ParamField>
+
+<ParamField body="from" type="string" required>
+  Source format: `markdown`
+</ParamField>
+
+<ParamField body="to" type="string" required>
+  Target format: `html` or `richtext`
+</ParamField>
+
+---
+
+## Test campaign
+
+<CodeGroup>
+```bash POST /api/campaigns/:id/test
+curl -u 'username:password' -X POST 'https://listmonk.mysite.com/api/campaigns/1/test' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "subscribers": ["test@example.com", "admin@example.com"],
+    "name": "Test Campaign",
+    "subject": "Test Subject",
+    "body": "<p>Test body</p>"
+  }'
+```
+</CodeGroup>
+
+Sends test emails to specified addresses.
+
+**Authentication:** Required  
+**Permission:** `campaigns:manage_all` or `campaigns:manage`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Campaign ID
+</ParamField>
+
+### Request Body
+
+<ParamField body="subscribers" type="array" required>
+  Array of subscriber email addresses to send test to
+</ParamField>
+
+<ParamField body="name" type="string">
+  Override campaign name
+</ParamField>
+
+<ParamField body="subject" type="string">
+  Override subject
+</ParamField>
+
+<ParamField body="body" type="string">
+  Override body
+</ParamField>
+
+<ParamField body="template_id" type="integer">
+  Override template
+</ParamField>
+
+---
+
+## Get campaign analytics
+
+<CodeGroup>
+```bash GET /api/campaigns/analytics/:type
+curl -u 'username:password' 'https://listmonk.mysite.com/api/campaigns/analytics/views' \
+  -G \
+  -d 'id=1' \
+  -d 'id=2' \
+  -d 'from=2024-01-01T00:00:00Z' \
+  -d 'to=2024-12-31T23:59:59Z'
+```
+</CodeGroup>
+
+Retrieves campaign analytics data.
+
+**Authentication:** Required  
+**Permission:** `campaigns:get_analytics`
+
+### Path Parameters
+
+<ParamField path="type" type="string" required>
+  Analytics type: `views`, `clicks`, or `links`
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="id" type="integer" required>
+  Campaign ID (can be specified multiple times)
+</ParamField>
+
+<ParamField query="from" type="string" required>
+  Start date (ISO 8601)
+</ParamField>
+
+<ParamField query="to" type="string" required>
+  End date (ISO 8601)
+</ParamField>
+
+### Response
+
+Returns analytics data with timestamps and counts for the specified period.

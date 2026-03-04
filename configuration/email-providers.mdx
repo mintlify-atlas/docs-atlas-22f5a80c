@@ -1,0 +1,390 @@
+---
+title: 'Email Providers'
+description: 'Configure SMTP servers and email service providers for sending campaigns'
+---
+
+## SMTP Configuration
+
+listmonk uses SMTP to send email campaigns. You can configure multiple SMTP servers and use them individually or as a round-robin pool.
+
+<Info>
+SMTP settings are configured through the Settings UI under Settings → SMTP. The configuration is stored in the database.
+</Info>
+
+## Multiple SMTP Servers
+
+listmonk supports configuring multiple SMTP servers:
+
+- **Unnamed servers** - Combined into a round-robin pool called "email"
+- **Named servers** - Available as individual messenger options in campaigns
+
+If you configure multiple named SMTP servers, campaigns can select which specific server to use.
+
+## SMTP Settings
+
+<ParamField path="enabled" type="boolean" default="true">
+  Enable or disable this SMTP server.
+</ParamField>
+
+<ParamField path="host" type="string" required>
+  SMTP server hostname or IP address.
+  
+  Examples: `smtp.gmail.com`, `smtp.sendgrid.net`, `localhost`
+</ParamField>
+
+<ParamField path="port" type="integer" required>
+  SMTP server port.
+  
+  Common ports:
+  - `25` - Standard SMTP (often blocked by cloud providers)
+  - `587` - SMTP with STARTTLS (recommended)
+  - `465` - SMTP with TLS/SSL
+  - `2525` - Alternative submission port
+</ParamField>
+
+<Warning>
+Some server hosts block outgoing SMTP ports (25, 465). Contact your hosting provider to unblock them before attempting to send emails.
+</Warning>
+
+<ParamField path="auth_protocol" type="string" default="plain">
+  SMTP authentication protocol.
+  
+  Options:
+  - `plain` - PLAIN authentication (most common)
+  - `login` - LOGIN authentication
+  - `cram` - CRAM-MD5 authentication
+  - `none` - No authentication
+</ParamField>
+
+<ParamField path="username" type="string">
+  SMTP username for authentication.
+</ParamField>
+
+<ParamField path="password" type="string">
+  SMTP password for authentication.
+</ParamField>
+
+<ParamField path="tls_type" type="string" default="STARTTLS">
+  TLS/SSL connection type.
+  
+  Options:
+  - `STARTTLS` - Upgrade connection to TLS (recommended for port 587)
+  - `TLS` - Direct TLS connection (for port 465)
+  - `none` - No encryption (not recommended for production)
+</ParamField>
+
+<ParamField path="tls_skip_verify" type="boolean" default="false">
+  Skip TLS certificate verification.
+  
+  <Warning>
+  Only enable this for testing with self-signed certificates. Never use in production.
+  </Warning>
+</ParamField>
+
+<ParamField path="hello_hostname" type="string" default="">
+  Hostname to use in the SMTP HELO/EHLO command. Leave empty to use the default.
+</ParamField>
+
+<ParamField path="max_conns" type="integer" default="10">
+  Maximum number of concurrent SMTP connections in the pool.
+</ParamField>
+
+<ParamField path="idle_timeout" type="duration" default="15s">
+  Maximum idle time for an SMTP connection before closing.
+</ParamField>
+
+<ParamField path="wait_timeout" type="duration" default="5s">
+  Maximum time to wait for a connection from the pool.
+</ParamField>
+
+<ParamField path="max_msg_retries" type="integer" default="2">
+  Number of times to retry sending a failed message using different connections from the SMTP pool.
+  
+  <Info>
+  These are silent retries at the moment of sending. Messages that fail after all retries are logged as errors.
+  </Info>
+</ParamField>
+
+<ParamField path="email_headers" type="array" default="[]">
+  Custom email headers to add to all messages sent through this SMTP server.
+  
+  Example: `[["X-Custom-Header", "value"]]`
+</ParamField>
+
+<ParamField path="name" type="string" default="">
+  Optional unique name for this SMTP server. When set, the server appears as a separate messenger option in campaigns.
+</ParamField>
+
+## Provider-Specific Configurations
+
+### AWS SES
+
+<CodeGroup>
+```json SMTP Settings
+{
+  "enabled": true,
+  "host": "email-smtp.us-east-1.amazonaws.com",
+  "port": 587,
+  "auth_protocol": "plain",
+  "username": "YOUR_SMTP_USERNAME",
+  "password": "YOUR_SMTP_PASSWORD",
+  "tls_type": "STARTTLS",
+  "tls_skip_verify": false,
+  "max_conns": 10,
+  "idle_timeout": "15s",
+  "wait_timeout": "5s",
+  "max_msg_retries": 2
+}
+```
+</CodeGroup>
+
+<Steps>
+  <Step title="Create SMTP Credentials">
+    In AWS SES console, go to SMTP Settings and create SMTP credentials. Note the username and password.
+  </Step>
+  
+  <Step title="Verify Domain or Email">
+    Verify your sending domain or email address in SES.
+  </Step>
+  
+  <Step title="Request Production Access">
+    By default, SES is in sandbox mode. Request production access to send to any email address.
+  </Step>
+  
+  <Step title="Configure Bounce Webhook">
+    See the [Bounce Management](/configuration/privacy-security#bounce-management) section to configure SES bounce webhooks.
+  </Step>
+</Steps>
+
+### Sendgrid
+
+<CodeGroup>
+```json SMTP Settings
+{
+  "enabled": true,
+  "host": "smtp.sendgrid.net",
+  "port": 587,
+  "auth_protocol": "plain",
+  "username": "apikey",
+  "password": "YOUR_SENDGRID_API_KEY",
+  "tls_type": "STARTTLS",
+  "tls_skip_verify": false,
+  "max_conns": 10,
+  "idle_timeout": "15s",
+  "wait_timeout": "5s",
+  "max_msg_retries": 2
+}
+```
+</CodeGroup>
+
+<Note>
+For Sendgrid, the username is always `apikey` and the password is your Sendgrid API key.
+</Note>
+
+### Postmark
+
+<CodeGroup>
+```json SMTP Settings
+{
+  "enabled": true,
+  "host": "smtp.postmarkapp.com",
+  "port": 587,
+  "auth_protocol": "plain",
+  "username": "YOUR_SERVER_API_TOKEN",
+  "password": "YOUR_SERVER_API_TOKEN",
+  "tls_type": "STARTTLS",
+  "tls_skip_verify": false,
+  "max_conns": 10,
+  "idle_timeout": "15s",
+  "wait_timeout": "5s",
+  "max_msg_retries": 2
+}
+```
+</CodeGroup>
+
+### Gmail
+
+<CodeGroup>
+```json SMTP Settings
+{
+  "enabled": true,
+  "host": "smtp.gmail.com",
+  "port": 465,
+  "auth_protocol": "login",
+  "username": "your-email@gmail.com",
+  "password": "YOUR_APP_PASSWORD",
+  "tls_type": "TLS",
+  "tls_skip_verify": false,
+  "max_conns": 10,
+  "idle_timeout": "15s",
+  "wait_timeout": "5s",
+  "max_msg_retries": 2
+}
+```
+</CodeGroup>
+
+<Warning>
+Gmail requires an App Password when using 2-factor authentication. Regular passwords won't work. Also, Gmail has strict sending limits and is not recommended for bulk email campaigns.
+</Warning>
+
+### Mailgun
+
+<CodeGroup>
+```json SMTP Settings
+{
+  "enabled": true,
+  "host": "smtp.mailgun.org",
+  "port": 587,
+  "auth_protocol": "plain",
+  "username": "postmaster@your-domain.mailgun.org",
+  "password": "YOUR_SMTP_PASSWORD",
+  "tls_type": "STARTTLS",
+  "tls_skip_verify": false,
+  "max_conns": 10,
+  "idle_timeout": "15s",
+  "wait_timeout": "5s",
+  "max_msg_retries": 2
+}
+```
+</CodeGroup>
+
+### Custom SMTP Server
+
+<CodeGroup>
+```json SMTP Settings
+{
+  "enabled": true,
+  "host": "smtp.yourserver.com",
+  "port": 587,
+  "auth_protocol": "plain",
+  "username": "username",
+  "password": "password",
+  "tls_type": "STARTTLS",
+  "tls_skip_verify": false,
+  "hello_hostname": "mail.yourdomain.com",
+  "max_conns": 10,
+  "idle_timeout": "15s",
+  "wait_timeout": "5s",
+  "max_msg_retries": 2,
+  "email_headers": []
+}
+```
+</CodeGroup>
+
+## Testing Email Settings
+
+<Steps>
+  <Step title="Save SMTP Configuration">
+    Configure your SMTP settings in Settings → SMTP and save.
+  </Step>
+  
+  <Step title="Send Test Email">
+    Use the "Send test email" button in the SMTP settings to verify the configuration.
+  </Step>
+  
+  <Step title="Check Logs">
+    If the test fails, check Settings → Logs for detailed error messages.
+  </Step>
+  
+  <Step title="Verify Connectivity">
+    Ensure your server can reach the SMTP host on the specified port. Test with:
+    ```bash
+    telnet smtp.example.com 587
+    ```
+  </Step>
+</Steps>
+
+## Configuration via config.toml
+
+While SMTP is typically configured through the UI, you can also set it in the database settings table. Here's the structure:
+
+<CodeGroup>
+```json Database Settings Format
+[
+  {
+    "enabled": true,
+    "host": "smtp.yoursite.com",
+    "port": 25,
+    "auth_protocol": "cram",
+    "username": "username",
+    "password": "password",
+    "hello_hostname": "",
+    "max_conns": 10,
+    "idle_timeout": "15s",
+    "wait_timeout": "5s",
+    "max_msg_retries": 2,
+    "tls_type": "STARTTLS",
+    "tls_skip_verify": false,
+    "email_headers": []
+  },
+  {
+    "enabled": false,
+    "name": "Gmail Backup",
+    "host": "smtp.gmail.com",
+    "port": 465,
+    "auth_protocol": "login",
+    "username": "username@gmail.com",
+    "password": "password",
+    "hello_hostname": "",
+    "max_conns": 10,
+    "idle_timeout": "15s",
+    "wait_timeout": "5s",
+    "max_msg_retries": 2,
+    "tls_type": "TLS",
+    "tls_skip_verify": false,
+    "email_headers": []
+  }
+]
+```
+</CodeGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="SMTP Connection Timeout">
+    - Verify the SMTP host and port are correct
+    - Check if your hosting provider blocks outgoing SMTP ports
+    - Ensure firewall rules allow outbound connections on the SMTP port
+    - Try using an alternative port (e.g., 2525 instead of 587)
+  </Accordion>
+  
+  <Accordion title="Authentication Failed">
+    - Double-check username and password
+    - For Gmail, ensure you're using an App Password, not your regular password
+    - Verify the auth_protocol matches your provider's requirements
+    - Some providers require specific username formats (e.g., full email address)
+  </Accordion>
+  
+  <Accordion title="TLS/SSL Errors">
+    - Verify tls_type matches the port (TLS for 465, STARTTLS for 587)
+    - Check if the SMTP server's SSL certificate is valid
+    - Only use tls_skip_verify for testing, never in production
+  </Accordion>
+  
+  <Accordion title="Low Sending Rate">
+    - Increase max_conns for higher throughput
+    - Check your provider's rate limits
+    - Adjust app.concurrency and app.message_rate in performance settings
+    - Consider using multiple SMTP servers in round-robin mode
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use STARTTLS" icon="shield-check">
+    Always use STARTTLS or TLS encryption for production email sending.
+  </Card>
+  
+  <Card title="Monitor Sending Limits" icon="gauge">
+    Be aware of your provider's sending limits and configure concurrency accordingly.
+  </Card>
+  
+  <Card title="Test Before Campaigns" icon="flask">
+    Always send test emails before launching large campaigns.
+  </Card>
+  
+  <Card title="Configure Bounces" icon="reply">
+    Set up bounce handling to maintain sender reputation and list hygiene.
+  </Card>
+</CardGroup>

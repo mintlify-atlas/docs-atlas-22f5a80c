@@ -1,0 +1,516 @@
+---
+title: 'Privacy & Security'
+description: 'Configure privacy settings, CORS, CAPTCHA, domain filtering, and data protection features'
+---
+
+## Privacy Settings
+
+listmonk provides comprehensive privacy controls to comply with GDPR, CAN-SPAM, and other privacy regulations.
+
+<Info>
+Privacy settings are configured through Settings → Privacy in the admin UI.
+</Info>
+
+## Tracking Settings
+
+<ParamField path="privacy.individual_tracking" type="boolean" default="false">
+  Enable individual subscriber tracking for campaign views and link clicks.
+  
+  When enabled:
+  - Campaign analytics show unique subscriber counts
+  - You can see which specific subscribers viewed campaigns or clicked links
+  
+  When disabled:
+  - Analytics show aggregate counts only
+  - Individual subscriber activity is not recorded
+  
+  <Info>
+  Disabling individual tracking significantly improves privacy but reduces analytics granularity.
+  </Info>
+</ParamField>
+
+<ParamField path="privacy.disable_tracking" type="boolean" default="false">
+  Completely disable all tracking pixels and link click tracking.
+  
+  <Warning>
+  When enabled, you will have no campaign analytics at all. This is the most privacy-friendly option.
+  </Warning>
+</ParamField>
+
+<ParamField path="privacy.record_optin_ip" type="boolean" default="false">
+  Record subscriber IP addresses during opt-in confirmation.
+  
+  Useful for:
+  - Compliance proof of opt-in
+  - Fraud detection
+  - Geographic analytics
+</ParamField>
+
+## Unsubscribe Settings
+
+<ParamField path="privacy.unsubscribe_header" type="boolean" default="true">
+  Add List-Unsubscribe and List-Unsubscribe-Post headers to campaign emails.
+  
+  These headers enable:
+  - One-click unsubscribe in Gmail, Outlook, and other email clients
+  - Improved deliverability and sender reputation
+  - Compliance with RFC 8058
+  
+  <Info>
+  Recommended to keep enabled for better deliverability.
+  </Info>
+</ParamField>
+
+## Subscriber Self-Service
+
+<ParamField path="privacy.allow_blocklist" type="boolean" default="true">
+  Allow subscribers to blocklist themselves, preventing re-subscription.
+  
+  When blocklisted:
+  - Subscriber is permanently removed
+  - Email address cannot be added again (even through imports)
+  - Complies with unsubscribe requests
+</ParamField>
+
+<ParamField path="privacy.allow_export" type="boolean" default="true">
+  Allow subscribers to export their data through the subscription management page.
+  
+  Exports include (based on exportable configuration):
+  - Profile information
+  - Subscription status
+  - Campaign views
+  - Link clicks
+</ParamField>
+
+<ParamField path="privacy.allow_wipe" type="boolean" default="true">
+  Allow subscribers to completely wipe their data from the system.
+  
+  <Warning>
+  This is a destructive action that cannot be undone. All subscriber data, including analytics, is permanently deleted.
+  </Warning>
+</ParamField>
+
+<ParamField path="privacy.allow_preferences" type="boolean" default="true">
+  Allow subscribers to manage their list subscriptions and preferences.
+  
+  Enables the public subscription management page where subscribers can:
+  - Subscribe/unsubscribe from specific lists
+  - Update their profile information
+  - Access export and wipe features
+</ParamField>
+
+## Data Export Configuration
+
+<ParamField path="privacy.exportable" type="array" default='["profile", "subscriptions", "campaign_views", "link_clicks"]'>
+  Define which data types subscribers can export.
+  
+  Available options:
+  - `profile` - Name, email, attributes, and other profile data
+  - `subscriptions` - List subscription status and dates
+  - `campaign_views` - History of viewed campaigns
+  - `link_clicks` - History of clicked links
+  
+  Example:
+  ```json
+  ["profile", "subscriptions"]
+  ```
+</ParamField>
+
+## Domain Filtering
+
+Control which email domains can subscribe to your lists.
+
+<ParamField path="privacy.domain_blocklist" type="array" default="[]">
+  List of email domains to block from subscribing.
+  
+  Useful for:
+  - Blocking disposable email services
+  - Preventing spam subscriptions
+  - Blocking competitor domains
+  
+  Example:
+  ```json
+  ["tempmail.com", "guerrillamail.com", "10minutemail.com"]
+  ```
+</ParamField>
+
+<ParamField path="privacy.domain_allowlist" type="array" default="[]">
+  List of email domains allowed to subscribe. When set, only these domains are permitted.
+  
+  <Info>
+  Allowlist takes precedence over blocklist. If allowlist is set, blocklist is ignored.
+  </Info>
+  
+  Use cases:
+  - Internal company newsletters (only @company.com)
+  - Exclusive communities
+  - Educational institutions
+  
+  Example:
+  ```json
+  ["company.com", "partner.com"]
+  ```
+</ParamField>
+
+### Domain Filter Examples
+
+<CodeGroup>
+```json Block Disposable Email Providers
+{
+  "privacy.domain_blocklist": [
+    "tempmail.com",
+    "guerrillamail.com",
+    "mailinator.com",
+    "10minutemail.com",
+    "throwaway.email"
+  ]
+}
+```
+
+```json Company-Only Newsletter
+{
+  "privacy.domain_allowlist": [
+    "company.com",
+    "subsidiary.com"
+  ]
+}
+```
+</CodeGroup>
+
+## CAPTCHA
+
+Protect public subscription forms from bots and spam.
+
+### Altcha (Privacy-Friendly)
+
+Altcha is a proof-of-work CAPTCHA that doesn't track users or require external services.
+
+<ParamField path="security.captcha.altcha.enabled" type="boolean" default="false">
+  Enable Altcha CAPTCHA on public subscription forms.
+</ParamField>
+
+<ParamField path="security.captcha.altcha.complexity" type="integer" default="300000">
+  Computational complexity of the proof-of-work challenge.
+  
+  - Higher values = more difficult for bots, but slower for users
+  - Recommended range: 50,000 to 500,000
+  - Default (300,000) takes ~1-2 seconds on modern devices
+</ParamField>
+
+<CodeGroup>
+```json Altcha Configuration
+{
+  "security.captcha": {
+    "altcha": {
+      "enabled": true,
+      "complexity": 300000
+    }
+  }
+}
+```
+</CodeGroup>
+
+### HCaptcha
+
+HCaptcha is a privacy-focused alternative to Google reCAPTCHA.
+
+<ParamField path="security.captcha.hcaptcha.enabled" type="boolean" default="false">
+  Enable HCaptcha on public subscription forms.
+</ParamField>
+
+<ParamField path="security.captcha.hcaptcha.key" type="string" required>
+  HCaptcha site key from your HCaptcha account.
+</ParamField>
+
+<ParamField path="security.captcha.hcaptcha.secret" type="string" required>
+  HCaptcha secret key from your HCaptcha account.
+</ParamField>
+
+<Steps>
+  <Step title="Create HCaptcha Account">
+    Sign up at [hCaptcha.com](https://www.hcaptcha.com/)
+  </Step>
+  
+  <Step title="Add New Site">
+    In the HCaptcha dashboard, add your listmonk domain
+  </Step>
+  
+  <Step title="Get Keys">
+    Copy the Site Key and Secret Key
+  </Step>
+  
+  <Step title="Configure listmonk">
+    Enter the keys in Settings → Security → CAPTCHA
+  </Step>
+</Steps>
+
+<CodeGroup>
+```json HCaptcha Configuration
+{
+  "security.captcha": {
+    "hcaptcha": {
+      "enabled": true,
+      "key": "your-site-key",
+      "secret": "your-secret-key"
+    }
+  }
+}
+```
+</CodeGroup>
+
+<Note>
+Only one CAPTCHA provider can be active at a time. If both are enabled, HCaptcha takes precedence.
+</Note>
+
+## CORS Configuration
+
+Configure Cross-Origin Resource Sharing (CORS) for API access from web applications.
+
+<ParamField path="security.cors_origins" type="array" default="[]">
+  List of origins allowed to make cross-origin requests to the listmonk API.
+  
+  Examples:
+  - Specific domains: `["https://example.com", "https://app.example.com"]`
+  - Wildcard (not recommended): `["*"]`
+  
+  <Warning>
+  Only add trusted domains. Using "*" allows any website to access your API.
+  </Warning>
+</ParamField>
+
+<CodeGroup>
+```json CORS Configuration
+{
+  "security.cors_origins": [
+    "https://example.com",
+    "https://app.example.com",
+    "https://admin.example.com"
+  ]
+}
+```
+</CodeGroup>
+
+## Bounce Management
+
+Handle bounced emails to maintain list hygiene and sender reputation.
+
+### Bounce Actions
+
+Configure automatic actions for different bounce types:
+
+<CodeGroup>
+```json Bounce Configuration
+{
+  "bounce.actions": {
+    "soft": {
+      "count": 2,
+      "action": "none"
+    },
+    "hard": {
+      "count": 1,
+      "action": "blocklist"
+    },
+    "complaint": {
+      "count": 1,
+      "action": "blocklist"
+    }
+  }
+}
+```
+</CodeGroup>
+
+<ParamField path="bounce.actions.soft.count" type="integer" default="2">
+  Number of soft bounces before taking action.
+</ParamField>
+
+<ParamField path="bounce.actions.soft.action" type="string" default="none">
+  Action to take after soft bounce threshold.
+  
+  Options: `none`, `blocklist`
+</ParamField>
+
+<ParamField path="bounce.actions.hard.count" type="integer" default="1">
+  Number of hard bounces before taking action.
+</ParamField>
+
+<ParamField path="bounce.actions.hard.action" type="string" default="blocklist">
+  Action to take after hard bounce threshold.
+  
+  Options: `none`, `blocklist`
+</ParamField>
+
+<ParamField path="bounce.actions.complaint.count" type="integer" default="1">
+  Number of spam complaints before taking action.
+</ParamField>
+
+<ParamField path="bounce.actions.complaint.action" type="string" default="blocklist">
+  Action to take after complaint threshold.
+  
+  Options: `none`, `blocklist`
+</ParamField>
+
+### Bounce Webhooks
+
+<ParamField path="bounce.webhooks_enabled" type="boolean" default="false">
+  Enable bounce webhook endpoint at `/webhooks/bounce`.
+  
+  <Warning>
+  This endpoint should be protected behind authentication or IP filtering.
+  </Warning>
+</ParamField>
+
+### Provider-Specific Bounce Handling
+
+#### AWS SES
+
+<ParamField path="bounce.ses_enabled" type="boolean" default="false">
+  Enable AWS SES SNS bounce webhook at `/webhooks/service/ses`.
+</ParamField>
+
+#### Sendgrid
+
+<ParamField path="bounce.sendgrid_enabled" type="boolean" default="false">
+  Enable Sendgrid bounce webhook at `/webhooks/service/sendgrid`.
+</ParamField>
+
+<ParamField path="bounce.sendgrid_key" type="string" default="">
+  Sendgrid webhook verification key for authenticating bounce notifications.
+</ParamField>
+
+#### Postmark
+
+<ParamField path="bounce.postmark.enabled" type="boolean" default="false">
+  Enable Postmark bounce webhook at `/webhooks/service/postmark`.
+</ParamField>
+
+<ParamField path="bounce.postmark.username" type="string" default="">
+  HTTP Basic Auth username for Postmark webhook.
+</ParamField>
+
+<ParamField path="bounce.postmark.password" type="string" default="">
+  HTTP Basic Auth password for Postmark webhook.
+</ParamField>
+
+#### ForwardEmail
+
+<ParamField path="bounce.forwardemail.enabled" type="boolean" default="false">
+  Enable ForwardEmail bounce webhook.
+</ParamField>
+
+<ParamField path="bounce.forwardemail.key" type="string" default="">
+  ForwardEmail webhook verification key.
+</ParamField>
+
+### Mailbox Polling
+
+listmonk can poll a mailbox for bounce messages:
+
+<CodeGroup>
+```json POP3 Mailbox Configuration
+{
+  "bounce.mailboxes": [
+    {
+      "enabled": true,
+      "type": "pop",
+      "host": "pop.yoursite.com",
+      "port": 995,
+      "auth_protocol": "userpass",
+      "username": "bounces@yoursite.com",
+      "password": "password",
+      "return_path": "bounces@yoursite.com",
+      "scan_interval": "15m",
+      "tls_enabled": true,
+      "tls_skip_verify": false
+    }
+  ]
+}
+```
+</CodeGroup>
+
+<Note>
+Currently, only one mailbox is supported. POP3 is the only supported protocol.
+</Note>
+
+## Appearance Customization
+
+Customize the look and feel of admin and public pages with custom CSS and JavaScript.
+
+<ParamField path="appearance.admin.custom_css" type="string" default="">
+  Custom CSS applied to the admin interface.
+  
+  <Warning>
+  Be careful with custom CSS as it can break the UI layout.
+  </Warning>
+</ParamField>
+
+<ParamField path="appearance.admin.custom_js" type="string" default="">
+  Custom JavaScript applied to the admin interface.
+  
+  <Warning>
+  Custom JavaScript runs with full admin privileges. Only use trusted code.
+  </Warning>
+</ParamField>
+
+<ParamField path="appearance.public.custom_css" type="string" default="">
+  Custom CSS applied to public pages (subscription management, archive).
+</ParamField>
+
+<ParamField path="appearance.public.custom_js" type="string" default="">
+  Custom JavaScript applied to public pages.
+</ParamField>
+
+## Privacy Compliance Checklist
+
+<Steps>
+  <Step title="Review Tracking Settings">
+    Decide if you need individual tracking or can use aggregate analytics only.
+  </Step>
+  
+  <Step title="Enable Subscriber Rights">
+    Ensure allow_preferences, allow_export, and allow_wipe are enabled for GDPR compliance.
+  </Step>
+  
+  <Step title="Configure Unsubscribe">
+    Keep unsubscribe_header enabled for one-click unsubscribe support.
+  </Step>
+  
+  <Step title="Set Up Bounce Handling">
+    Configure bounce webhooks or mailbox polling to automatically remove invalid addresses.
+  </Step>
+  
+  <Step title="Add CAPTCHA">
+    Enable Altcha or HCaptcha to prevent bot subscriptions.
+  </Step>
+  
+  <Step title="Document Data Retention">
+    Create a privacy policy documenting what data you collect and how long you retain it.
+  </Step>
+</Steps>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Minimize Data Collection" icon="database">
+    Only track what you need. Consider disabling individual tracking if not required.
+  </Card>
+  
+  <Card title="Enable Self-Service" icon="user-gear">
+    Allow subscribers to manage their preferences, export data, and wipe their information.
+  </Card>
+  
+  <Card title="Handle Bounces" icon="reply">
+    Set up bounce handling to automatically clean your list and maintain sender reputation.
+  </Card>
+  
+  <Card title="Use CAPTCHA" icon="shield-check">
+    Protect subscription forms from spam and bot attacks.
+  </Card>
+  
+  <Card title="Regular Audits" icon="magnifying-glass">
+    Periodically review privacy settings and ensure compliance with regulations.
+  </Card>
+  
+  <Card title="Document Everything" icon="file-lines">
+    Maintain clear documentation of your privacy practices and data handling.
+  </Card>
+</CardGroup>

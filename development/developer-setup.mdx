@@ -1,0 +1,349 @@
+---
+title: Developer Setup
+description: Set up your local development environment for listmonk
+---
+
+This guide will help you set up a local development environment for contributing to listmonk.
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Go** 1.24.1 or higher
+- **Node.js** 16+ and **Yarn** 1.22+
+- **PostgreSQL** 12+
+- **Make** (for build automation)
+- **Git**
+
+<Note>
+The backend is written in Go and the frontend uses Vue.js with Buefy for the UI components.
+</Note>
+
+## Clone the Repository
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/knadh/listmonk.git
+    cd listmonk
+    ```
+  </Step>
+
+  <Step title="Verify the directory structure">
+    The repository contains:
+    - `cmd/` - Go application entry point
+    - `internal/` - Internal Go packages (core, manager, auth, etc.)
+    - `frontend/` - Vue.js admin interface
+    - `i18n/` - Internationalization files
+    - `static/` - Static assets and email templates
+    - `queries/` - SQL queries
+  </Step>
+</Steps>
+
+## Backend Setup
+
+<Steps>
+  <Step title="Install Go dependencies">
+    Go modules are used for dependency management. Dependencies will be automatically downloaded when building:
+    
+    ```bash
+    go mod download
+    ```
+  </Step>
+
+  <Step title="Build the backend">
+    Build the listmonk binary:
+    
+    ```bash
+    make build
+    ```
+    
+    This creates the `listmonk` binary in the current directory.
+  </Step>
+
+  <Step title="Generate config file">
+    ```bash
+    ./listmonk --new-config
+    ```
+    
+    Edit the generated `config.toml` file with your database credentials and settings.
+  </Step>
+</Steps>
+
+## Frontend Setup
+
+<Steps>
+  <Step title="Install frontend dependencies">
+    Navigate to the frontend directory and install dependencies:
+    
+    ```bash
+    cd frontend
+    yarn install
+    cd ..
+    ```
+  </Step>
+
+  <Step title="Build the email builder">
+    The email builder is a separate component:
+    
+    ```bash
+    make build-email-builder
+    ```
+  </Step>
+
+  <Step title="Build the frontend">
+    ```bash
+    make build-frontend
+    ```
+    
+    This compiles the Vue.js application and outputs to `frontend/dist`.
+  </Step>
+</Steps>
+
+<Note>
+The frontend uses Vite as the build tool and ESLint for code linting. The linter runs automatically before builds.
+</Note>
+
+## Database Setup
+
+<Steps>
+  <Step title="Create PostgreSQL database">
+    ```bash
+    createdb listmonk
+    ```
+  </Step>
+
+  <Step title="Run database installation">
+    ```bash
+    ./listmonk --install
+    ```
+    
+    This sets up the database schema and creates the necessary tables.
+    
+    <Tip>
+    Use `--upgrade` to upgrade an existing database. Upgrades are idempotent and can be run multiple times safely.
+    </Tip>
+  </Step>
+
+  <Step title="Create admin user">
+    Follow the prompts to create your first admin user during installation.
+  </Step>
+</Steps>
+
+## Running in Development Mode
+
+### Backend Development
+
+Run the backend in development mode with live frontend assets:
+
+```bash
+make run
+```
+
+This starts the server and loads frontend assets from `frontend/dist` directory.
+
+<CodeGroup>
+```bash Backend Only
+make run
+```
+
+```bash Backend with Docker Config
+make run-backend-docker
+```
+</CodeGroup>
+
+### Frontend Development
+
+For active frontend development with hot reload:
+
+<Steps>
+  <Step title="Start the frontend dev server">
+    ```bash
+    make run-frontend
+    ```
+    
+    This starts Vite dev server with hot module replacement (HMR).
+  </Step>
+
+  <Step title="Access the application">
+    - Frontend dev server: `http://localhost:3000`
+    - Backend API: `http://localhost:9000`
+  </Step>
+</Steps>
+
+<Note>
+When running the frontend dev server, configure it to proxy API requests to the backend server at `http://localhost:9000`.
+</Note>
+
+## Building for Production
+
+### Complete Build with Embedded Assets
+
+Build everything and embed all assets into a single binary:
+
+```bash
+make dist
+```
+
+This:
+1. Installs `stuffbin` (asset embedding tool)
+2. Builds the backend binary
+3. Builds the frontend
+4. Embeds all static assets, templates, and frontend into the binary
+
+### Individual Build Targets
+
+<CodeGroup>
+```bash Backend Binary
+make build
+```
+
+```bash Frontend Only
+make build-frontend
+```
+
+```bash Email Builder
+make build-email-builder
+```
+
+```bash Pack Binary
+make pack-bin
+```
+</CodeGroup>
+
+## Project Structure
+
+```
+listmonk/
+├── cmd/                    # Main application entry point
+│   ├── main.go
+│   ├── init.go
+│   ├── handlers.go
+│   └── ...
+├── internal/               # Internal packages
+│   ├── core/              # Core business logic
+│   ├── manager/           # Campaign manager
+│   ├── messenger/         # Message delivery (SMTP, etc.)
+│   ├── auth/              # Authentication
+│   ├── bounce/            # Bounce handling
+│   ├── i18n/              # Internationalization
+│   └── media/             # Media management
+├── frontend/               # Vue.js admin interface
+│   ├── src/
+│   ├── public/
+│   └── package.json
+├── i18n/                   # Language files (JSON)
+├── static/                 # Static assets
+│   ├── email-templates/   # Email templates
+│   └── public/            # Public assets
+├── queries/                # SQL queries
+├── schema.sql             # Database schema
+├── config.toml.sample     # Sample configuration
+└── Makefile               # Build automation
+```
+
+## Testing
+
+Run Go tests:
+
+```bash
+make test
+```
+
+This executes all Go unit tests across the project.
+
+<Tip>
+For frontend testing, Cypress is configured. Check `frontend/package.json` for available test scripts.
+</Tip>
+
+## Docker Development Environment
+
+### Using Docker Compose for Development
+
+<Steps>
+  <Step title="Build development Docker images">
+    ```bash
+    make build-dev-docker
+    ```
+  </Step>
+
+  <Step title="Start the development environment">
+    ```bash
+    make dev-docker
+    ```
+    
+    This starts PostgreSQL, backend, and frontend containers.
+  </Step>
+
+  <Step title="Initialize the database">
+    ```bash
+    make init-dev-docker
+    ```
+  </Step>
+
+  <Step title="Stop and clean up">
+    ```bash
+    make rm-dev-docker
+    ```
+    
+    This removes all containers and volumes.
+  </Step>
+</Steps>
+
+## Frontend Development Notes
+
+### Global Vue Plugins
+
+In `frontend/main.js`, the following are attached globally:
+- **Buefy** - UI component framework
+- **vue-i18n** - Internationalization
+- **$api** - API calls from `api/index.js`
+- **$utils** - Utility functions from `util.js`
+
+These are accessible in components as `this.$api` and `this.$utils`.
+
+### State Management
+
+The project uses **Vuex** for global state management. API responses are stored centrally as "models" defined in `constants.js`. Check `store/index.js` for state definitions.
+
+### Icon Set
+
+listmonk uses a custom subset of Material Design Icons via [Fontello](https://fontello.com). The icon configuration is in `frontend/fontello/config.json`.
+
+<Note>
+JSON field names in API responses are automatically camel-cased in the frontend. When sending data to the backend, manually convert to snake_case.
+</Note>
+
+## Development Workflow
+
+1. **Make changes** to backend (Go) or frontend (Vue) code
+2. **Test locally** using `make run` and `make run-frontend`
+3. **Run tests** with `make test`
+4. **Build** with `make dist` to verify production build
+5. **Commit changes** following the contribution guidelines
+
+## Troubleshooting
+
+### Build Issues
+
+- Ensure all prerequisites are installed and up to date
+- Clear build artifacts: `rm -rf listmonk frontend/dist`
+- Reinstall dependencies: `go mod download && cd frontend && yarn install`
+
+### Database Connection Issues
+
+- Verify PostgreSQL is running: `pg_isready`
+- Check `config.toml` database credentials
+- Ensure the database exists: `psql -l | grep listmonk`
+
+### Frontend Dev Server Issues
+
+- Clear node modules: `cd frontend && rm -rf node_modules && yarn install`
+- Check for port conflicts (default: 3000)
+- Verify backend is running on port 9000
+
+## Next Steps
+
+- Review the [Contributing Guide](/development/contributing) for code standards
+- Learn about [Internationalization](/development/i18n) to add translations
+- Explore the codebase and start contributing!

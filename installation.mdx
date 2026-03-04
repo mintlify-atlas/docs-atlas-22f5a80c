@@ -1,0 +1,505 @@
+---
+title: Installation
+description: Install listmonk using Docker or as a standalone binary
+---
+
+## Prerequisites
+
+Before installing listmonk, ensure you have:
+
+- **PostgreSQL 12+** (PostgreSQL 17 recommended for Docker)
+- **2GB RAM minimum** (4GB+ recommended for production)
+- **Linux, macOS, or Windows** (Linux recommended for production)
+- **Port 9000 available** (or your chosen port)
+
+<Warning>
+listmonk requires PostgreSQL as its database. It does not support MySQL, SQLite, or other databases.
+</Warning>
+
+## Installation Methods
+
+<Tabs>
+  <Tab title="Docker (Recommended)">
+    Docker is the recommended installation method as it handles all dependencies and configuration automatically.
+
+    <Steps>
+      <Step title="Download docker-compose.yml">
+        Download the official Docker Compose configuration:
+
+        ```bash
+        curl -LO https://github.com/knadh/listmonk/raw/master/docker-compose.yml
+        ```
+
+        This downloads a complete setup with both listmonk and PostgreSQL configured and ready to run.
+      </Step>
+
+      <Step title="Optional: Configure Admin Credentials">
+        Set admin credentials before first run (optional):
+
+        ```bash
+        export LISTMONK_ADMIN_USER=admin
+        export LISTMONK_ADMIN_PASSWORD=your_secure_password
+        ```
+
+        <Info>
+        If you don't set these environment variables, you'll be prompted to create an admin user when you first visit the web interface.
+        </Info>
+      </Step>
+
+      <Step title="Start the Services">
+        Launch listmonk and PostgreSQL:
+
+        ```bash
+        docker compose up -d
+        ```
+
+        This command:
+        - Downloads the latest listmonk image
+        - Creates a PostgreSQL database container
+        - Automatically runs database installation and migrations
+        - Starts both services in the background
+      </Step>
+
+      <Step title="Access the Dashboard">
+        Visit `http://localhost:9000` in your browser.
+
+        If you didn't set admin credentials in Step 2, you'll be prompted to create your admin account.
+      </Step>
+    </Steps>
+
+    ### Docker Configuration Details
+
+    The `docker-compose.yml` includes:
+
+    <CodeGroup>
+    ```yaml docker-compose.yml (Key Sections)
+    services:
+      app:
+        image: listmonk/listmonk:latest
+        ports:
+          - "9000:9000"
+        depends_on:
+          - db
+        command: [
+          sh, -c,
+          "./listmonk --install --idempotent --yes --config '' && 
+           ./listmonk --upgrade --yes --config '' && 
+           ./listmonk --config ''"
+        ]
+        environment:
+          LISTMONK_app__address: 0.0.0.0:9000
+          LISTMONK_db__host: db
+          LISTMONK_db__port: 5432
+          LISTMONK_db__user: listmonk
+          LISTMONK_db__password: listmonk
+          LISTMONK_db__database: listmonk
+          LISTMONK_db__ssl_mode: disable
+        volumes:
+          - ./uploads:/listmonk/uploads:rw
+
+      db:
+        image: postgres:17-alpine
+        environment:
+          POSTGRES_USER: listmonk
+          POSTGRES_PASSWORD: listmonk
+          POSTGRES_DB: listmonk
+        volumes:
+          - listmonk-data:/var/lib/postgresql/data
+    ```
+    </CodeGroup>
+
+    <Accordion title="Understanding the Docker Setup">
+      - **--install --idempotent**: Ensures database is initialized only once on first run
+      - **--upgrade**: Automatically applies database migrations on updates
+      - **Volumes**: `./uploads` is mounted for media storage
+      - **Networks**: Isolated network for app-db communication
+      - **Health Checks**: Ensures PostgreSQL is ready before app starts
+    </Accordion>
+
+    ### Changing the Port
+
+    To expose listmonk on a different port:
+
+    ```yaml
+    ports:
+      - "8080:9000"  # External:Internal
+    ```
+
+    ### Using Docker Secrets
+
+    For production, use Docker secrets instead of environment variables:
+
+    ```yaml
+    environment:
+      LISTMONK_ADMIN_USER_FILE: /run/secrets/admin_user
+      LISTMONK_ADMIN_PASSWORD_FILE: /run/secrets/admin_password
+    ```
+
+    <Note>
+    All `LISTMONK_*` environment variables support the `_FILE` suffix for loading secrets from files.
+    </Note>
+  </Tab>
+
+  <Tab title="Binary Installation">
+    Install listmonk as a standalone binary for more control over your setup.
+
+    <Steps>
+      <Step title="Download the Binary">
+        Download the latest release for your platform from [GitHub Releases](https://github.com/knadh/listmonk/releases):
+
+        ```bash
+        # Linux AMD64 example
+        wget https://github.com/knadh/listmonk/releases/latest/download/listmonk_linux_amd64.tar.gz
+        tar -xzf listmonk_linux_amd64.tar.gz
+        chmod +x listmonk
+        ```
+
+        Available platforms:
+        - Linux (amd64, arm64)
+        - macOS (amd64, arm64)
+        - Windows (amd64)
+      </Step>
+
+      <Step title="Setup PostgreSQL">
+        Create a PostgreSQL database for listmonk:
+
+        ```sql
+        CREATE DATABASE listmonk;
+        CREATE USER listmonk WITH PASSWORD 'your_secure_password';
+        GRANT ALL PRIVILEGES ON DATABASE listmonk TO listmonk;
+        ```
+
+        <Warning>
+        Ensure PostgreSQL 12 or higher is installed. The schema uses features not available in older versions.
+        </Warning>
+      </Step>
+
+      <Step title="Generate Configuration">
+        Create a default configuration file:
+
+        ```bash
+        ./listmonk --new-config
+        ```
+
+        This generates `config.toml` in the current directory.
+      </Step>
+
+      <Step title="Edit Configuration">
+        Edit `config.toml` with your database credentials:
+
+        <CodeGroup>
+        ```toml config.toml
+        [app]
+        address = "localhost:9000"
+
+        [db]
+        host = "localhost"
+        port = 5432
+        user = "listmonk"
+        password = "your_secure_password"
+        database = "listmonk"
+        ssl_mode = "disable"
+        max_open = 25
+        max_idle = 25
+        max_lifetime = "300s"
+        ```
+        </CodeGroup>
+
+        <Accordion title="Database Configuration Options">
+          - **host**: PostgreSQL server hostname (default: `localhost`)
+          - **port**: PostgreSQL port (default: `5432`)
+          - **user**: Database user
+          - **password**: Database password
+          - **database**: Database name
+          - **ssl_mode**: SSL mode (`disable`, `require`, `verify-ca`, `verify-full`)
+          - **max_open**: Maximum open connections (default: `25`)
+          - **max_idle**: Maximum idle connections (default: `25`)
+          - **max_lifetime**: Maximum connection lifetime (default: `300s`)
+          - **params**: Optional space-separated DSN parameters
+        </Accordion>
+      </Step>
+
+      <Step title="Install Database Schema">
+        Initialize the database with the required schema:
+
+        ```bash
+        ./listmonk --install
+        ```
+
+        You'll be prompted to confirm. The installer will:
+        - Create all required tables and indexes
+        - Set up PostgreSQL extensions (pgcrypto)
+        - Create enum types for statuses
+        - Insert default settings
+        - Create materialized views for analytics
+
+        <Info>
+        The `--install` command is idempotent when run with `--idempotent --yes` flags. Running it multiple times is safe.
+        </Info>
+      </Step>
+
+      <Step title="Start listmonk">
+        Run listmonk:
+
+        ```bash
+        ./listmonk
+        ```
+
+        Visit `http://localhost:9000` and create your admin account.
+      </Step>
+    </Steps>
+
+    ### Upgrading
+
+    To upgrade an existing installation:
+
+    ```bash
+    # Stop listmonk
+    # Replace binary with new version
+    ./listmonk --upgrade
+    ./listmonk
+    ```
+
+    <Note>
+    Database upgrades are idempotent. Running `--upgrade` multiple times is safe and has no side effects.
+    </Note>
+  </Tab>
+</Tabs>
+
+## Database Setup Details
+
+### PostgreSQL Requirements
+
+listmonk uses advanced PostgreSQL features:
+
+<CardGroup cols={2}>
+  <Card title="Extensions" icon="puzzle-piece">
+    - **pgcrypto**: UUID generation and encryption functions
+  </Card>
+  
+  <Card title="Custom Types" icon="shapes">
+    14 custom ENUM types for type-safe status management
+  </Card>
+  
+  <Card title="JSONB Support" icon="brackets-curly">
+    Flexible metadata storage for subscribers, campaigns, and settings
+  </Card>
+  
+  <Card title="Materialized Views" icon="table">
+    Pre-computed statistics for dashboard performance
+  </Card>
+</CardGroup>
+
+### Schema Overview
+
+The database schema includes:
+
+<Accordion title="Core Tables">
+  - **subscribers**: Subscriber data with JSONB attributes
+  - **lists**: Mailing lists with type and opt-in settings
+  - **subscriber_lists**: Many-to-many relationship with subscription status
+  - **campaigns**: Email campaigns with content and statistics
+  - **templates**: Reusable email templates
+</Accordion>
+
+<Accordion title="Analytics Tables">
+  - **campaign_views**: Track email opens
+  - **link_clicks**: Track link clicks in campaigns
+  - **bounces**: Bounce records with type classification
+</Accordion>
+
+<Accordion title="System Tables">
+  - **settings**: Application configuration stored as JSONB
+  - **users**: Multi-user support with roles
+  - **roles**: Role-based permission system
+  - **sessions**: User session management
+  - **media**: Media library for campaign assets
+</Accordion>
+
+## Production Deployment
+
+### System Requirements
+
+<Tabs>
+  <Tab title="Minimum">
+    - **CPU**: 1 core
+    - **RAM**: 2GB
+    - **Storage**: 10GB
+    - **Suitable for**: Up to 10,000 subscribers, occasional campaigns
+  </Tab>
+  
+  <Tab title="Recommended">
+    - **CPU**: 2-4 cores
+    - **RAM**: 4-8GB
+    - **Storage**: 50GB SSD
+    - **Suitable for**: 100,000+ subscribers, regular campaigns
+  </Tab>
+  
+  <Tab title="High Volume">
+    - **CPU**: 4-8 cores
+    - **RAM**: 8-16GB
+    - **Storage**: 100GB+ SSD
+    - **Suitable for**: 1M+ subscribers, high-frequency campaigns
+  </Tab>
+</Tabs>
+
+### Production Checklist
+
+<Steps>
+  <Step title="Secure the Database">
+    - Use strong passwords
+    - Enable SSL/TLS connections (`ssl_mode = "require"`)
+    - Restrict PostgreSQL network access
+    - Regular database backups
+  </Step>
+  
+  <Step title="Configure Reverse Proxy">
+    Use nginx or Apache as a reverse proxy:
+
+    ```nginx
+    server {
+        listen 80;
+        server_name listmonk.example.com;
+        
+        location / {
+            proxy_pass http://localhost:9000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+    }
+    ```
+
+    Enable HTTPS with Let's Encrypt:
+
+    ```bash
+    certbot --nginx -d listmonk.example.com
+    ```
+  </Step>
+  
+  <Step title="Setup SMTP">
+    Configure production SMTP servers in Admin → Settings → SMTP after installation.
+    
+    Consider using:
+    - Amazon SES
+    - SendGrid
+    - Mailgun
+    - Postmark
+    - Your own SMTP server
+  </Step>
+  
+  <Step title="Configure Backups">
+    Regular PostgreSQL backups:
+
+    ```bash
+    pg_dump -U listmonk listmonk > backup_$(date +%Y%m%d).sql
+    ```
+
+    Backup the uploads directory:
+
+    ```bash
+    tar -czf uploads_backup.tar.gz ./uploads
+    ```
+  </Step>
+  
+  <Step title="Setup Monitoring">
+    Monitor:
+    - Application logs
+    - Database performance
+    - Disk space
+    - SMTP delivery rates
+    - Bounce rates
+  </Step>
+  
+  <Step title="Performance Tuning">
+    Optimize PostgreSQL for your workload:
+
+    ```sql
+    -- Increase shared_buffers for better caching
+    shared_buffers = 256MB
+    
+    -- Increase work_mem for complex queries
+    work_mem = 16MB
+    
+    -- Enable query plan caching
+    effective_cache_size = 1GB
+    ```
+
+    Tune listmonk settings in Admin → Settings:
+    - Concurrency (default: 10)
+    - Message rate (default: 10/sec)
+    - Batch size (default: 1000)
+  </Step>
+</Steps>
+
+<Warning>
+**Security Considerations:**
+- Always use HTTPS in production
+- Keep listmonk updated to the latest version
+- Use strong passwords for admin accounts
+- Enable two-factor authentication
+- Restrict database access to localhost or private network
+- Configure firewall rules appropriately
+</Warning>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Database Connection Failed">
+    Check:
+    - PostgreSQL is running: `pg_isready -h localhost -p 5432`
+    - Credentials are correct in `config.toml`
+    - Database exists: `psql -U listmonk -l`
+    - Network connectivity if using remote database
+    - SSL mode matches PostgreSQL configuration
+  </Accordion>
+  
+  <Accordion title="Port Already in Use">
+    Change the port in configuration:
+
+    ```toml
+    [app]
+    address = "localhost:8080"  # Use different port
+    ```
+
+    Or in Docker:
+
+    ```yaml
+    ports:
+      - "8080:9000"
+    ```
+  </Accordion>
+  
+  <Accordion title="Permission Denied Errors">
+    Ensure:
+    - Binary has execute permissions: `chmod +x listmonk`
+    - Database user has proper grants
+    - Uploads directory is writable
+  </Accordion>
+  
+  <Accordion title="Schema Installation Fails">
+    - Verify PostgreSQL version is 12+
+    - Check database user has CREATE privileges
+    - Review PostgreSQL logs for specific errors
+    - Ensure pgcrypto extension can be installed
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start Guide" icon="play" href="/quickstart">
+    Send your first campaign in 5 minutes
+  </Card>
+  
+  <Card title="Configuration" icon="gear" href="/configuration">
+    Configure SMTP, settings, and preferences
+  </Card>
+  
+  <Card title="Core Concepts" icon="book" href="/concepts">
+    Understand subscribers, lists, and campaigns
+  </Card>
+  
+  <Card title="API Documentation" icon="code" href="/api">
+    Integrate with the REST API
+  </Card>
+</CardGroup>

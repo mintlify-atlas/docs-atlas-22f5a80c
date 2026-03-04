@@ -1,80 +1,338 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: "Quickstart Guide"
+description: "Send your first campaign in minutes"
 ---
 
-## Get started in three steps
+## Overview
 
-Get your documentation site running locally and make your first customization.
+This quickstart guide will walk you through setting up listmonk and sending your first email campaign in just a few steps. By the end, you'll have:
 
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+- A running listmonk instance
+- A configured mailing list
+- Subscribers added to your list
+- Your first campaign created and sent
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+This guide assumes you're using Docker for installation. For other installation methods, see the [Installation Guide](/installation).
 </Note>
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- Docker and Docker Compose installed
+- An SMTP server or email provider (Gmail, AWS SES, Sendgrid, etc.)
+- Basic command line knowledge
+
+## Step-by-Step Guide
+
+<Steps>
+  <Step title="Install and Launch Listmonk">
+    Download and start listmonk with Docker Compose:
+
+    ```bash
+    # Download the compose file
+    curl -LO https://github.com/knadh/listmonk/raw/master/docker-compose.yml
+
+    # Start the services
+    docker compose up -d
+    ```
+
+    Visit `http://localhost:9000` in your browser. You'll be prompted to create your admin account.
+
+    <Info>
+    To set credentials during installation, use:
+    ```bash
+    LISTMONK_ADMIN_USER=admin LISTMONK_ADMIN_PASSWORD=yourpassword docker compose up -d
+    ```
+    </Info>
+  </Step>
+
+  <Step title="Configure SMTP Settings">
+    After logging in, navigate to **Settings** → **SMTP** to configure your email provider.
+
+    <Tabs>
+      <Tab title="Gmail">
+        ```json
+        {
+          "host": "smtp.gmail.com",
+          "port": 587,
+          "auth_protocol": "login",
+          "username": "your-email@gmail.com",
+          "password": "your-app-password",
+          "hello_hostname": "",
+          "max_conns": 10,
+          "max_msg_retries": 2,
+          "idle_timeout": "15s",
+          "wait_timeout": "5s",
+          "tls_enabled": true,
+          "tls_skip_verify": false
+        }
+        ```
+        <Note>Use an [App Password](https://support.google.com/accounts/answer/185833) instead of your regular Gmail password.</Note>
+      </Tab>
+
+      <Tab title="AWS SES">
+        ```json
+        {
+          "host": "email-smtp.us-east-1.amazonaws.com",
+          "port": 587,
+          "auth_protocol": "login",
+          "username": "YOUR_SMTP_USERNAME",
+          "password": "YOUR_SMTP_PASSWORD",
+          "hello_hostname": "",
+          "max_conns": 10,
+          "max_msg_retries": 2,
+          "idle_timeout": "15s",
+          "wait_timeout": "5s",
+          "tls_enabled": true,
+          "tls_skip_verify": false
+        }
+        ```
+      </Tab>
+
+      <Tab title="Sendgrid">
+        ```json
+        {
+          "host": "smtp.sendgrid.net",
+          "port": 587,
+          "auth_protocol": "login",
+          "username": "apikey",
+          "password": "YOUR_SENDGRID_API_KEY",
+          "hello_hostname": "",
+          "max_conns": 10,
+          "max_msg_retries": 2,
+          "idle_timeout": "15s",
+          "wait_timeout": "5s",
+          "tls_enabled": true,
+          "tls_skip_verify": false
+        }
+        ```
+      </Tab>
+    </Tabs>
+
+    Click **Test connection** to verify your SMTP settings work correctly.
+  </Step>
+
+  <Step title="Create Your First Mailing List">
+    Navigate to **Lists** in the sidebar and click **New**.
+
+    Fill in the details:
+    - **Name**: Newsletter Subscribers
+    - **Type**: Public (allows public subscription)
+    - **Opt-in**: Single (subscribers are added immediately) or Double (requires email confirmation)
+    - **Description**: Optional internal description
+
+    Click **Save** to create your list.
+
+    <Tip>
+    Start with a **Private** list and **Single** opt-in for testing to avoid sending confirmation emails.
+    </Tip>
+  </Step>
+
+  <Step title="Add Subscribers">
+    Go to **Subscribers** → **New** to manually add a subscriber.
+
+    <Tabs>
+      <Tab title="Manual Entry">
+        Fill in the form:
+        - **Email**: your-email@example.com
+        - **Name**: Your Name
+        - **Status**: Enabled
+        - **Lists**: Select "Newsletter Subscribers"
+        - **Subscription Status**: Confirmed
+
+        Click **Save**.
+      </Tab>
+
+      <Tab title="Bulk Import">
+        You can also import multiple subscribers from a CSV file:
+
+        1. Go to **Subscribers** → **Import**
+        2. Upload a CSV file with columns: `email`, `name`, `status`
+        3. Select the list to import into
+        4. Choose import mode (Subscribe or Blocklist)
+        5. Click **Upload**
+
+        Example CSV:
+        ```csv
+        email,name,status
+        john@example.com,John Doe,enabled
+        jane@example.com,Jane Smith,enabled
+        ```
+      </Tab>
+    </Tabs>
+
+    <Info>
+    For your first test, use your own email address so you can verify campaign delivery.
+    </Info>
+  </Step>
+
+  <Step title="Create an Email Template">
+    Navigate to **Campaigns** → **Templates** → **New**.
+
+    You can use the default template or create a custom one:
+
+    ```html
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+    </head>
+    <body>
+        <h1>{{ "{{" }} .Campaign.Name {{ "}}" }}</h1>
+        <div>
+            {{ "{{" }} .Campaign.Body {{ "}}" }}
+        </div>
+        <hr>
+        <p>
+            <a href="{{ "{{" }} .UnsubscribeURL {{ "}}" }}">Unsubscribe</a>
+        </p>
+    </body>
+    </html>
+    ```
+
+    Save the template as your default campaign template.
+  </Step>
+
+  <Step title="Create and Send Your First Campaign">
+    Navigate to **Campaigns** → **New Campaign**.
+
+    Configure your campaign:
+    - **Name**: Welcome Newsletter (internal name)
+    - **Subject**: Welcome to Our Newsletter!
+    - **From**: your-email@example.com
+    - **Lists**: Select "Newsletter Subscribers"
+    - **Template**: Choose your template
+    - **Content**: Write your email content using the rich text editor
+
+    Example content:
+    ```
+    Hi there!
+
+    Thank you for subscribing to our newsletter. We're excited to have you join our community.
+
+    You'll receive updates about our latest news, tips, and exclusive offers.
+
+    Best regards,
+    The Team
+    ```
+
+    **Test Your Campaign**:
+    1. Click **Test** and enter your email address
+    2. Check that you receive the test email
+    3. Verify formatting and links work correctly
+
+    **Send Your Campaign**:
+    1. Click **Start campaign** when you're ready
+    2. The campaign status will change to "Running"
+    3. Monitor progress in the campaign dashboard
+  </Step>
+</Steps>
+
+## Verify Delivery
+
+After sending your campaign:
+
+1. Check the **Campaign** page for delivery statistics
+2. Look for:
+   - **Sent**: Number of emails sent
+   - **Views**: Number of opens (if tracking enabled)
+   - **Clicks**: Number of link clicks
+   - **Bounces**: Failed deliveries
+
+3. Check your inbox for the email
+4. Verify all links work, especially the unsubscribe link
+
+## What's Next?
+
+Now that you've sent your first campaign, explore more features:
+
+<CardGroup cols={2}>
+  <Card title="Subscriber Management" icon="users" href="/features/subscribers">
+    Learn advanced subscriber management and segmentation
+  </Card>
+  <Card title="Campaign Features" icon="newspaper" href="/features/campaigns">
+    Explore scheduling, analytics, and advanced campaign options
+  </Card>
+  <Card title="Templates" icon="palette" href="/features/templates">
+    Create beautiful email templates with variables and functions
+  </Card>
+  <Card title="API Integration" icon="code" href="/api/overview">
+    Integrate listmonk with your applications using the API
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<Accordion title="SMTP Connection Failed">
+  **Problem**: Test connection fails or emails won't send
+
+  **Solutions**:
+  - Verify your SMTP credentials are correct
+  - Check that you're using the correct host and port
+  - For Gmail, ensure you're using an App Password, not your regular password
+  - Check if your provider requires specific security settings (TLS/SSL)
+  - Verify your firewall allows outbound connections on the SMTP port
+</Accordion>
+
+<Accordion title="Campaign Stuck in 'Running' Status">
+  **Problem**: Campaign doesn't complete or shows no progress
+
+  **Solutions**:
+  - Check SMTP settings are configured correctly
+  - Look at the logs: `docker compose logs -f listmonk`
+  - Verify you have subscribers in the selected lists
+  - Check the campaign's "Send later" date if scheduled
+  - Ensure `concurrency` and `message_rate` settings allow sending
+</Accordion>
+
+<Accordion title="Subscribers Not Receiving Emails">
+  **Problem**: Campaign sent but subscribers didn't receive emails
+
+  **Solutions**:
+  - Check subscriber status is "Enabled"
+  - Verify subscription status is "Confirmed"
+  - Check spam/junk folders
+  - Look for bounces in the Bounces section
+  - Verify your SMTP provider's sending limits aren't exceeded
+  - Check campaign analytics for delivery errors
+</Accordion>
+
+<Accordion title="Unsubscribe Link Not Working">
+  **Problem**: Unsubscribe link returns an error
+
+  **Solutions**:
+  - Ensure `root_url` is configured correctly in Settings → General
+  - Verify your template includes `{{ "{{" }} .UnsubscribeURL {{ "}}" }}`
+  - Check that the listmonk web server is accessible at the configured URL
+</Accordion>
+
+## Best Practices
+
+<Card title="Start Small" icon="seedling">
+  Begin with a small test list of your own email addresses to verify everything works before sending to your full subscriber base.
+</Card>
+
+<Card title="Monitor Bounces" icon="shield-check">
+  Regularly check and clean your bounce list to maintain a healthy sender reputation.
+</Card>
+
+<Card title="Respect Unsubscribes" icon="user-check">
+  Always include an unsubscribe link and honor opt-outs immediately.
+</Card>
+
+<Card title="Test Everything" icon="vial">
+  Use the test campaign feature to verify content, links, and formatting before sending to your entire list.
+</Card>
+
+## Need Help?
+
+<CardGroup cols={2}>
+  <Card title="Documentation" icon="book" href="/introduction">
+    Browse the complete documentation
+  </Card>
+  <Card title="GitHub Issues" icon="github" href="https://github.com/knadh/listmonk/issues">
+    Report bugs or request features
+  </Card>
+</CardGroup>

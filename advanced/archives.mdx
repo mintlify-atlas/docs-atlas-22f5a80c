@@ -1,0 +1,546 @@
+---
+title: Public Campaign Archives
+description: Enable public archives and RSS feeds for your campaigns
+---
+
+listmonk allows you to make campaigns publicly accessible through a web archive, complete with RSS feed support.
+
+## Overview
+
+Public campaign archives allow you to:
+
+- Share campaigns on your website without requiring subscription
+- Provide an RSS feed for campaign updates
+- Create a public newsletter archive
+- Use custom slugs for SEO-friendly URLs
+
+## Enabling Archive Functionality
+
+Archives are controlled by the `app.enable_public_archive` setting (defined in `schema.sql:244`).
+
+### Enable via Settings UI
+
+1. Go to Settings → General
+2. Enable "Public campaign archives"
+3. Save settings
+
+### Enable via Configuration
+
+In your configuration:
+
+```toml
+[settings]
+app.enable_public_archive = true
+app.enable_public_archive_rss_content = true  # Include full content in RSS
+```
+
+The archive endpoints are registered in `cmd/handlers.go:279-284`:
+
+```go
+if a.cfg.EnablePublicArchive {
+    g.GET("/archive", a.CampaignArchivesPage)
+    g.GET("/archive.xml", a.GetCampaignArchivesFeed)
+    g.GET("/archive/:id", a.CampaignArchivePage)
+    g.GET("/archive/latest", a.CampaignArchivePageLatest)
+}
+```
+
+## Archive URL Structure
+
+listmonk provides several archive endpoints:
+
+### Archive Index
+
+Lists all archived campaigns:
+
+```
+https://your-listmonk.com/archive
+```
+
+- Paginated list of campaigns
+- Shows campaign subject and send date
+- Links to individual campaign pages
+
+Handled by `cmd/archive.go:99-116`.
+
+### Individual Campaign
+
+View a specific campaign by UUID:
+
+```
+https://your-listmonk.com/archive/campaign-uuid-here
+```
+
+Or with custom slug:
+
+```
+https://your-listmonk.com/archive/monthly-newsletter-january-2024
+```
+
+The archive page handler (`cmd/archive.go:119-174`) supports both UUID and custom slug lookups.
+
+### Latest Campaign
+
+Always shows the most recent archived campaign:
+
+```
+https://your-listmonk.com/archive/latest
+```
+
+Useful for embedding on your website to always show the latest newsletter.
+
+### JSON API
+
+Get campaign archives as JSON:
+
+```bash
+GET /api/public/archive?page=1&per_page=20
+```
+
+Returns:
+
+```json
+{
+  "data": {
+    "results": [
+      {
+        "uuid": "campaign-uuid",
+        "subject": "Campaign Subject",
+        "url": "https://your-listmonk.com/archive/campaign-uuid",
+        "created_at": "2024-01-15T10:00:00Z",
+        "send_at": "2024-01-15T12:00:00Z"
+      }
+    ],
+    "total": 50,
+    "page": 1,
+    "per_page": 20
+  }
+}
+```
+
+API endpoint: `cmd/handlers.go:262` and handler in `cmd/archive.go:27-50`.
+
+## Archiving Campaigns
+
+Campaigns must be explicitly enabled for archiving.
+
+### Enable Archive for Campaign
+
+When creating or editing a campaign:
+
+<Steps>
+  <Step title="Open campaign editor">
+    Create a new campaign or edit an existing one
+  </Step>
+  
+  <Step title="Enable archiving">
+    Check "Enable public archive" in campaign settings
+  </Step>
+  
+  <Step title="Set custom slug (optional)">
+    Add a custom URL slug like `january-2024-newsletter`
+  </Step>
+  
+  <Step title="Configure archive metadata">
+    Set subscriber data to use for template rendering in the archive
+  </Step>
+  
+  <Step title="Save campaign">
+    The campaign will be publicly accessible once sent
+  </Step>
+</Steps>
+
+### Database Schema
+
+Archive settings are stored in the campaigns table (`schema.sql:126-129`):
+
+```sql
+-- Publishing.
+archive             BOOLEAN NOT NULL DEFAULT false,
+archive_slug        TEXT NULL UNIQUE,
+archive_template_id INTEGER REFERENCES templates(id),
+archive_meta        JSONB NOT NULL DEFAULT '{}',
+```
+
+### API: Enable Archive
+
+```bash
+PUT /api/campaigns/:id/archive
+```
+
+```json
+{
+  "archive": true,
+  "archive_slug": "monthly-newsletter-jan-2024",
+  "archive_meta": {
+    "name": "Newsletter Subscriber",
+    "email": "subscriber@example.com"
+  }
+}
+```
+
+## RSS Feed for Archives
+
+listmonk provides an RSS feed for archived campaigns.
+
+### RSS Feed URL
+
+```
+https://your-listmonk.com/archive.xml
+```
+
+### RSS Feed Configuration
+
+Control RSS content with `app.enable_public_archive_rss_content` setting:
+
+- `true` - Include full campaign HTML in feed items
+- `false` - Include only title and link
+
+Default from `schema.sql:246`:
+
+```json
+'app.enable_public_archive_rss_content': 'true'
+```
+
+### RSS Feed Implementation
+
+The feed is generated in `cmd/archive.go:53-96`:
+
+- Uses the `github.com/gorilla/feeds` library
+- Feed title comes from `app.site_name` setting
+- Feed description: "Campaign Archives"
+- Items include:
+  - Title: Campaign subject
+  - Link: Archive URL
+  - Content: Full campaign HTML (if enabled)
+  - Published date: Campaign send_at or created_at
+
+### Feed Pagination
+
+```
+https://your-listmonk.com/archive.xml?page=1&per_page=50
+```
+
+Default: 20 items per page
+
+## Archive Metadata
+
+When archiving a campaign, you provide metadata that substitutes for actual subscriber data.
+
+### Why Archive Metadata?
+
+Campaigns use template variables like:
+
+```html
+<p>Hello {{ .Subscriber.Name }}!</p>
+<p>Your email: {{ .Subscriber.Email }}</p>
+```
+
+For public archives, you need dummy subscriber data to render these variables.
+
+### Setting Archive Metadata
+
+Configure when enabling archive:
+
+```json
+{
+  "archive": true,
+  "archive_meta": {
+    "email": "subscriber@example.com",
+    "name": "Newsletter Subscriber",
+    "attribs": {
+      "city": "San Francisco",
+      "plan": "Premium"
+    }
+  }
+}
+```
+
+This metadata is stored in the `archive_meta` JSONB column and used during rendering (`cmd/archive.go:252-257`).
+
+<Info>
+Use generic values in archive metadata to protect subscriber privacy.
+</Info>
+
+## Privacy Considerations
+
+<Warning>
+Be careful what you include in public archives. They are accessible to anyone.
+</Warning>
+
+### Best Practices
+
+<Steps>
+  <Step title="Review content before archiving">
+    Ensure no sensitive subscriber information is in the campaign content
+  </Step>
+  
+  <Step title="Use generic archive metadata">
+    Don't use real subscriber data in archive_meta
+  </Step>
+  
+  <Step title="Disable individual tracking links">
+    Archive pages don't track clicks or views per subscriber
+  </Step>
+  
+  <Step title="Consider subscriber-only content">
+    Use conditional template logic to hide sensitive content in archives:
+    
+    ```html
+    {{ if .Subscriber.UUID }}
+      <!-- This appears only in emails, not archives -->
+      <p>Your personal discount code: {{ .Subscriber.Attribs.discount_code }}</p>
+    {{ end }}
+    ```
+  </Step>
+  
+  <Step title="Review archive template">
+    Use a different template for archives if needed via `archive_template_id`
+  </Step>
+</Steps>
+
+### What's Not Tracked in Archives
+
+From `cmd/public.go:584`:
+
+- Campaign views are excluded if campaign UUID is the dummy UUID
+- No subscriber-specific tracking
+- Unsubscribe links don't work
+- Preference management links are disabled
+
+## Customizing Archive Pages
+
+Archive pages use the standard public template system.
+
+### Archive Page Template
+
+The archive list page uses the `archive` template (`cmd/archive.go:109-115`):
+
+```html
+<div class="campaigns">
+  {{ range .Campaigns }}
+    <div class="campaign">
+      <h2><a href="{{ .URL }}">{{ .Subject }}</a></h2>
+      <time>{{ .SendAt }}</time>
+    </div>
+  {{ end }}
+</div>
+
+<div class="pagination">
+  {{ .Pagination }}
+</div>
+```
+
+### Individual Campaign Template
+
+Individual campaigns use their assigned campaign template or archive template.
+
+The rendering process (`cmd/archive.go:165-173`):
+
+1. Compiles the campaign template
+2. Loads archive metadata as subscriber
+3. Renders the campaign body
+4. Returns raw HTML
+
+### Custom Archive Template
+
+Create a dedicated template for archives:
+
+1. Create template with type "Campaign"
+2. When archiving, set `archive_template_id` to this template
+3. The archive will use this template instead of the campaign's template
+
+```bash
+PUT /api/campaigns/:id/archive
+```
+
+```json
+{
+  "archive": true,
+  "archive_template_id": 5,
+  "archive_slug": "newsletter-jan-2024"
+}
+```
+
+## Custom CSS and JavaScript
+
+Customize archive appearance with custom CSS/JS.
+
+### Add Custom Styles
+
+In Settings → Appearance → Public custom CSS:
+
+```css
+.archive .campaign {
+  border: 1px solid #ddd;
+  padding: 20px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+}
+
+.archive h2 {
+  color: #333;
+  font-size: 24px;
+}
+```
+
+Served via `cmd/handlers.go:286` at `/public/custom.css`.
+
+### Add Custom Scripts
+
+In Settings → Appearance → Public custom JS:
+
+```javascript
+// Track archive page views
+document.addEventListener('DOMContentLoaded', function() {
+  if (window.location.pathname.startsWith('/archive/')) {
+    // Your analytics code here
+  }
+});
+```
+
+Served via `cmd/handlers.go:287` at `/public/custom.js`.
+
+## Embedding Archives on Your Website
+
+### Embed Latest Campaign
+
+Use an iframe:
+
+```html
+<iframe 
+  src="https://your-listmonk.com/archive/latest" 
+  width="100%" 
+  height="600" 
+  frameborder="0">
+</iframe>
+```
+
+### Fetch and Display with JavaScript
+
+```javascript
+fetch('https://your-listmonk.com/api/public/archive?per_page=5')
+  .then(response => response.json())
+  .then(data => {
+    const campaigns = data.data.results;
+    const html = campaigns.map(c => `
+      <div class="campaign">
+        <h3><a href="${c.url}">${c.subject}</a></h3>
+        <p>${new Date(c.send_at).toLocaleDateString()}</p>
+      </div>
+    `).join('');
+    
+    document.getElementById('campaigns').innerHTML = html;
+  });
+```
+
+### Subscribe to RSS
+
+Add RSS link to your website:
+
+```html
+<link 
+  rel="alternate" 
+  type="application/rss+xml" 
+  title="Newsletter Archive" 
+  href="https://your-listmonk.com/archive.xml"
+>
+
+<a href="https://your-listmonk.com/archive.xml">
+  Subscribe to RSS
+</a>
+```
+
+## Use Cases
+
+<Accordion title="Company Newsletter Archive">
+Make your monthly newsletters publicly available for transparency and SEO:
+
+- Enable archive for all newsletter campaigns
+- Use descriptive slugs: `newsletter-2024-january`
+- Add to company website footer
+- Submit RSS feed to feed aggregators
+</Accordion>
+
+<Accordion title="Blog Post Announcements">
+Archive campaigns that announce new blog posts:
+
+- Use archive as alternative content feed
+- SEO benefits from indexed campaign content
+- RSS feed as blog update notification
+</Accordion>
+
+<Accordion title="Product Update Log">
+Public archive of product updates and release notes:
+
+- Chronological history of product changes
+- RSS feed for developer updates
+- Link from documentation
+</Accordion>
+
+<Accordion title="Event Announcements">
+Public archive of past event announcements:
+
+- Shows history of community events
+- Helps with event discovery
+- Can be embedded on events page
+</Accordion>
+
+## SEO Optimization
+
+### Custom Slugs
+
+Use descriptive, keyword-rich slugs:
+
+- ✅ `monthly-security-update-january-2024`
+- ✅ `new-feature-announcement-dark-mode`
+- ❌ `campaign-123`
+- ❌ `nl-jan`
+
+### Archive Metadata
+
+The archive pages include metadata from your settings:
+
+- Site name from `app.site_name`
+- Favicon from `app.favicon_url`
+- Logo from `app.logo_url`
+
+### Sitemap
+
+<Info>
+listmonk doesn't automatically generate a sitemap. Consider creating one that includes your archive URLs.
+</Info>
+
+## Troubleshooting
+
+### Archives Not Appearing
+
+<Steps>
+  <Step title="Check feature is enabled">
+    Verify `app.enable_public_archive = true` in settings
+  </Step>
+  
+  <Step title="Confirm campaign is archived">
+    Campaign must have `archive = true` set
+  </Step>
+  
+  <Step title="Verify campaign is sent">
+    Only sent (finished) campaigns appear in archives
+  </Step>
+  
+  <Step title="Check campaign type">
+    Only regular campaigns are archived, not opt-in campaigns (`cmd/archive.go:133`)
+  </Step>
+</Steps>
+
+### Template Rendering Errors
+
+- Ensure archive_meta includes all variables used in templates
+- Check template syntax
+- Review application logs for specific errors
+
+### RSS Feed Not Updating
+
+- RSS feeds are generated in real-time, not cached
+- Check browser/feed reader cache
+- Verify campaigns have proper send_at dates

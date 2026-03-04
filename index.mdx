@@ -1,97 +1,165 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Listmonk Documentation"
+description: "High performance, self-hosted newsletter and mailing list manager"
 ---
 
-## Setting up
+<div className="relative overflow-hidden bg-gradient-to-br from-[#0f1117] via-[#1a1d27] to-[#0f1117] dark:bg-gradient-to-br dark:from-[#0f1117] dark:via-[#1a1d27] dark:to-[#0f1117] bg-white py-20">
+  <div className="absolute inset-0 bg-grid-white/[0.02] bg-[length:50px_50px]" />
+  <div className="relative max-w-7xl mx-auto px-6 lg:px-8">
+    <div className="grid lg:grid-cols-2 gap-12 items-center">
+      <div>
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white dark:text-white mb-6">
+          Self-Hosted Newsletter Platform
+        </h1>
+        <p className="text-lg sm:text-xl text-gray-300 dark:text-gray-300 max-w-2xl mb-8">
+          Build and manage mailing lists, send campaigns, and track engagement with a powerful, privacy-focused platform that you control.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
+          <a 
+            href="/quickstart" 
+            className="inline-flex items-center justify-center px-8 py-3 rounded-full bg-[#0a5edb] hover:bg-[#0454d4] text-white font-semibold transition-colors no-underline"
+          >
+            Get Started
+          </a>
+          <a 
+            href="/api/overview" 
+            className="inline-flex items-center justify-center px-8 py-3 rounded-full border border-white/30 bg-white/10 hover:bg-white/20 text-white font-semibold transition-colors no-underline"
+          >
+            API Reference
+          </a>
+        </div>
+      </div>
+      <div className="hidden lg:block">
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-tr from-[#0454d4]/20 to-[#fc6c04]/20 blur-3xl" />
+          <div className="relative bg-[#1a1d27] dark:bg-[#1a1d27] rounded-2xl border border-[#27272a] dark:border-[#27272a] p-8 shadow-2xl">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-3 h-3 rounded-full bg-red-500" />
+              <div className="w-3 h-3 rounded-full bg-yellow-500" />
+              <div className="w-3 h-3 rounded-full bg-green-500" />
+            </div>
+            <pre className="text-sm text-gray-300 dark:text-gray-300 overflow-x-auto">
+              <code>{`docker compose up -d
 
-Get your documentation site up and running in minutes.
+✓ Container listmonk-db    Started
+✓ Container listmonk-app   Started
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+Visit http://localhost:9000`}</code>
+            </pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-## Make it yours
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Quick Start</h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">Get listmonk running in minutes</p>
+  
+  <Steps>
+    <Step title="Download and Run">
+      Deploy listmonk with Docker or download the binary for your platform.
+      
+      ```bash Docker
+      curl -LO https://github.com/knadh/listmonk/raw/master/docker-compose.yml
+      docker compose up -d
+      ```
+      
+      Visit `http://localhost:9000` to access the dashboard.
+    </Step>
+    
+    <Step title="Create Your First List">
+      Navigate to **Lists** in the dashboard and create a new mailing list. Choose between public (open subscription), private (invitation only), or temporary lists.
+      
+      <Note>Public lists can have opt-in pages that subscribers can use to sign up directly.</Note>
+    </Step>
+    
+    <Step title="Add Subscribers">
+      Import subscribers via CSV upload, use the API, or add them manually through the dashboard. Subscribers can belong to multiple lists and have custom attributes stored as JSON.
+      
+      <Tip>Use the `/api/subscribers` endpoint to programmatically manage your subscriber base.</Tip>
+    </Step>
+    
+    <Step title="Create and Send a Campaign">
+      Design your email using the visual editor or write HTML directly. Choose your target lists, schedule or send immediately, and track opens, clicks, and bounces in real-time.
+    </Step>
+  </Steps>
+</div>
 
-Design a docs site that looks great and empowers your users.
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Core Features</h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">Everything you need for email marketing and newsletters</p>
+  
+  <CardGroup cols={2}>
+    <Card title="Subscriber Management" icon="users" href="/features/subscribers">
+      Organize subscribers with custom attributes, segmentation, and list management
+    </Card>
+    <Card title="Campaign Builder" icon="newspaper" href="/features/campaigns">
+      Create beautiful emails with templates, scheduling, and A/B testing
+    </Card>
+    <Card title="Template Designer" icon="palette" href="/features/templates">
+      Visual email editor with drag-and-drop components and HTML support
+    </Card>
+    <Card title="Bounce Handling" icon="shield-check" href="/advanced/bounces">
+      Automatic bounce processing with SES, Sendgrid, and Postmark webhooks
+    </Card>
+    <Card title="Analytics" icon="chart-line" href="/features/campaigns">
+      Track opens, clicks, bounces, and unsubscribes with detailed reporting
+    </Card>
+    <Card title="Transactional API" icon="code" href="/advanced/transactional">
+      Send one-off emails via REST API for notifications and alerts
+    </Card>
+  </CardGroup>
+</div>
 
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Explore by Topic</h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">Deep dive into specific areas</p>
+  
+  <CardGroup cols={3}>
+    <Card title="Installation" icon="download" href="/installation">
+      Docker, binary, and production deployment guides
+    </Card>
+    <Card title="Configuration" icon="gear" href="/configuration/app-config">
+      SMTP setup, authentication, and privacy settings
+    </Card>
+    <Card title="API Reference" icon="terminal" href="/api/overview">
+      Complete REST API documentation with examples
+    </Card>
+    <Card title="Lists & Subscribers" icon="list" href="/features/lists">
+      Managing mailing lists and subscriber data
+    </Card>
+    <Card title="Email Providers" icon="envelope" href="/configuration/email-providers">
+      Configure SMTP, SES, Sendgrid, and more
+    </Card>
+    <Card title="Integrations" icon="plug" href="/advanced/integrations">
+      Connect with external services and webhooks
+    </Card>
+  </CardGroup>
+</div>
 
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
-
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="bg-gradient-to-r from-[#0454d4] to-[#0a5edb] dark:from-[#0454d4] dark:to-[#0a5edb] rounded-2xl p-8 lg:p-12">
+    <div className="max-w-3xl">
+      <h2 className="text-3xl font-bold text-white mb-4">Ready to get started?</h2>
+      <p className="text-lg text-white/90 mb-6">
+        Deploy listmonk in minutes and take control of your email campaigns. Open source, self-hosted, and privacy-focused.
+      </p>
+      <div className="flex flex-col sm:flex-row gap-4">
+        <a 
+          href="/installation" 
+          className="inline-flex items-center justify-center px-8 py-3 rounded-full bg-white hover:bg-gray-100 text-[#0454d4] font-semibold transition-colors no-underline"
+        >
+          Install Listmonk
+        </a>
+        <a 
+          href="https://demo.listmonk.app" 
+          className="inline-flex items-center justify-center px-8 py-3 rounded-full border-2 border-white text-white hover:bg-white/10 font-semibold transition-colors no-underline"
+        >
+          Try the Demo
+        </a>
+      </div>
+    </div>
+  </div>
+</div>

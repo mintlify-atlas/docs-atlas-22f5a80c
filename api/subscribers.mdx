@@ -1,0 +1,644 @@
+---
+title: 'Subscribers API'
+description: 'Manage subscribers including creation, updates, list management, and exports'
+---
+
+## Query subscribers
+
+<CodeGroup>
+```bash GET /api/subscribers
+curl -u 'username:password' 'https://listmonk.mysite.com/api/subscribers' \
+  -G \
+  -d 'page=1' \
+  -d 'per_page=100' \
+  -d 'list_id=1' \
+  -d 'subscription_status=confirmed'
+```
+</CodeGroup>
+
+Retrieves a paginated list of subscribers with optional filtering.
+
+**Authentication:** Required  
+**Permission:** `subscribers:get_all` or `subscribers:get`
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="20">
+  Number of results per page (max 100)
+</ParamField>
+
+<ParamField query="query" type="string">
+  SQL expression for advanced filtering (requires `subscribers:sql_query` permission)
+</ParamField>
+
+<ParamField query="search" type="string">
+  Search term to filter subscribers by name or email
+</ParamField>
+
+<ParamField query="list_id" type="integer">
+  Filter by list ID (can be specified multiple times)
+</ParamField>
+
+<ParamField query="subscription_status" type="string">
+  Filter by subscription status: `unconfirmed`, `confirmed`, or `unsubscribed`
+</ParamField>
+
+<ParamField query="order_by" type="string" default="id">
+  Field to order by: `id`, `email`, `name`, `created_at`, `updated_at`
+</ParamField>
+
+<ParamField query="order" type="string" default="asc">
+  Sort order: `asc` or `desc`
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="object">
+  <Expandable title="properties">
+    <ResponseField name="results" type="array">
+      Array of subscriber objects
+      <Expandable title="subscriber object">
+        <ResponseField name="id" type="integer">
+          Subscriber ID
+        </ResponseField>
+        <ResponseField name="uuid" type="string">
+          Unique UUID for the subscriber
+        </ResponseField>
+        <ResponseField name="email" type="string">
+          Email address
+        </ResponseField>
+        <ResponseField name="name" type="string">
+          Subscriber name
+        </ResponseField>
+        <ResponseField name="status" type="string">
+          Status: `enabled`, `disabled`, or `blocklisted`
+        </ResponseField>
+        <ResponseField name="attribs" type="object">
+          Custom attributes as key-value pairs
+        </ResponseField>
+        <ResponseField name="lists" type="array">
+          Array of list subscriptions
+        </ResponseField>
+        <ResponseField name="created_at" type="string">
+          Creation timestamp
+        </ResponseField>
+        <ResponseField name="updated_at" type="string">
+          Last update timestamp
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="query" type="string">
+      The SQL query used for filtering
+    </ResponseField>
+    <ResponseField name="total" type="integer">
+      Total number of subscribers matching the query
+    </ResponseField>
+    <ResponseField name="per_page" type="integer">
+      Results per page
+    </ResponseField>
+    <ResponseField name="page" type="integer">
+      Current page number
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Get subscriber
+
+<CodeGroup>
+```bash GET /api/subscribers/:id
+curl -u 'username:password' 'https://listmonk.mysite.com/api/subscribers/1'
+```
+</CodeGroup>
+
+Retrieves a single subscriber by ID.
+
+**Authentication:** Required  
+**Permission:** `subscribers:get_all` or `subscribers:get`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Subscriber ID
+</ParamField>
+
+### Response
+
+Returns a single subscriber object with the same structure as the query endpoint.
+
+---
+
+## Get subscriber activity
+
+<CodeGroup>
+```bash GET /api/subscribers/:id/activity
+curl -u 'username:password' 'https://listmonk.mysite.com/api/subscribers/1/activity'
+```
+</CodeGroup>
+
+Retrieves a subscriber's campaign views and link clicks.
+
+**Authentication:** Required  
+**Permission:** `subscribers:get_all` or `subscribers:get`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Subscriber ID
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="object">
+  <Expandable title="properties">
+    <ResponseField name="campaign_views" type="array">
+      Array of campaign view records
+    </ResponseField>
+    <ResponseField name="link_clicks" type="array">
+      Array of link click records
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Export subscriber data
+
+<CodeGroup>
+```bash GET /api/subscribers/:id/export
+curl -u 'username:password' 'https://listmonk.mysite.com/api/subscribers/1/export' \
+  -o subscriber-data.json
+```
+</CodeGroup>
+
+Exports a subscriber's complete data including profile, subscriptions, campaign views, and link clicks as JSON.
+
+**Authentication:** Required  
+**Permission:** `subscribers:get_all` or `subscribers:get`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Subscriber ID
+</ParamField>
+
+### Response
+
+Returns a JSON file download containing the subscriber's complete data.
+
+---
+
+## Create subscriber
+
+<CodeGroup>
+```bash POST /api/subscribers
+curl -u 'username:password' 'https://listmonk.mysite.com/api/subscribers' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "email": "john@example.com",
+    "name": "John Doe",
+    "status": "enabled",
+    "lists": [1, 2],
+    "attribs": {
+      "city": "Bangalore",
+      "projects": 3
+    },
+    "preconfirm_subscriptions": true
+  }'
+```
+</CodeGroup>
+
+Creates a new subscriber.
+
+**Authentication:** Required  
+**Permission:** `subscribers:manage`
+
+### Request Body
+
+<ParamField body="email" type="string" required>
+  Email address (must be valid and unique)
+</ParamField>
+
+<ParamField body="name" type="string" required>
+  Subscriber name (max 2000 characters)
+</ParamField>
+
+<ParamField body="status" type="string" default="enabled">
+  Subscriber status: `enabled`, `disabled`, or `blocklisted`
+</ParamField>
+
+<ParamField body="lists" type="array">
+  Array of list IDs to subscribe to
+</ParamField>
+
+<ParamField body="attribs" type="object">
+  Custom attributes as key-value pairs (JSON object)
+</ParamField>
+
+<ParamField body="preconfirm_subscriptions" type="boolean" default="false">
+  If true, subscriptions are marked as confirmed without sending opt-in email
+</ParamField>
+
+### Response
+
+Returns the created subscriber object.
+
+---
+
+## Update subscriber
+
+<CodeGroup>
+```bash PUT /api/subscribers/:id
+curl -u 'username:password' -X PUT 'https://listmonk.mysite.com/api/subscribers/1' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "email": "john@example.com",
+    "name": "John Doe Updated",
+    "status": "enabled",
+    "lists": [1, 3],
+    "attribs": {
+      "city": "New York",
+      "projects": 5
+    },
+    "preconfirm_subscriptions": false
+  }'
+```
+</CodeGroup>
+
+Updates an existing subscriber.
+
+**Authentication:** Required  
+**Permission:** `subscribers:manage`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Subscriber ID
+</ParamField>
+
+### Request Body
+
+Same parameters as create subscriber. All fields are optional - only provided fields will be updated.
+
+---
+
+## Send opt-in email
+
+<CodeGroup>
+```bash POST /api/subscribers/:id/optin
+curl -u 'username:password' -X POST 'https://listmonk.mysite.com/api/subscribers/1/optin'
+```
+</CodeGroup>
+
+Sends a double opt-in confirmation email to a subscriber.
+
+**Authentication:** Required  
+**Permission:** `subscribers:manage`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Subscriber ID
+</ParamField>
+
+---
+
+## Blocklist subscriber
+
+<CodeGroup>
+```bash PUT /api/subscribers/:id/blocklist
+curl -u 'username:password' -X PUT 'https://listmonk.mysite.com/api/subscribers/1/blocklist'
+```
+</CodeGroup>
+
+Blocklists a single subscriber.
+
+**Authentication:** Required  
+**Permission:** `subscribers:manage`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Subscriber ID
+</ParamField>
+
+---
+
+## Blocklist subscribers (bulk)
+
+<CodeGroup>
+```bash PUT /api/subscribers/blocklist
+curl -u 'username:password' -X PUT 'https://listmonk.mysite.com/api/subscribers/blocklist' \
+  -H 'Content-Type: application/json' \
+  -d '{"ids": [1, 2, 3]}'
+```
+</CodeGroup>
+
+Blocklists multiple subscribers.
+
+**Authentication:** Required  
+**Permission:** `subscribers:manage`
+
+### Request Body
+
+<ParamField body="ids" type="array" required>
+  Array of subscriber IDs to blocklist
+</ParamField>
+
+---
+
+## Manage subscriber lists
+
+<CodeGroup>
+```bash PUT /api/subscribers/lists/:id
+curl -u 'username:password' -X PUT 'https://listmonk.mysite.com/api/subscribers/lists/1' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "ids": [1, 2, 3],
+    "action": "add",
+    "target_list_ids": [4, 5],
+    "status": "confirmed"
+  }'
+```
+</CodeGroup>
+
+Adds, removes, or unsubscribes subscribers from lists.
+
+**Authentication:** Required  
+**Permission:** `subscribers:manage`
+
+### Path Parameters
+
+<ParamField path="id" type="integer">
+  List ID (optional when using request body ids)
+</ParamField>
+
+### Request Body
+
+<ParamField body="ids" type="array" required>
+  Array of subscriber IDs
+</ParamField>
+
+<ParamField body="action" type="string" required>
+  Action to perform: `add`, `remove`, or `unsubscribe`
+</ParamField>
+
+<ParamField body="target_list_ids" type="array" required>
+  Array of list IDs to perform action on
+</ParamField>
+
+<ParamField body="status" type="string">
+  Subscription status when adding: `unconfirmed`, `confirmed`, or `unsubscribed`
+</ParamField>
+
+---
+
+## Delete subscriber
+
+<CodeGroup>
+```bash DELETE /api/subscribers/:id
+curl -u 'username:password' -X DELETE 'https://listmonk.mysite.com/api/subscribers/1'
+```
+</CodeGroup>
+
+Deletes a single subscriber permanently.
+
+**Authentication:** Required  
+**Permission:** `subscribers:manage`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Subscriber ID
+</ParamField>
+
+---
+
+## Delete subscribers (bulk)
+
+<CodeGroup>
+```bash DELETE /api/subscribers
+curl -u 'username:password' -X DELETE 'https://listmonk.mysite.com/api/subscribers?id=1&id=2&id=3'
+```
+</CodeGroup>
+
+Deletes multiple subscribers permanently.
+
+**Authentication:** Required  
+**Permission:** `subscribers:manage`
+
+### Query Parameters
+
+<ParamField query="id" type="integer" required>
+  Subscriber ID (can be specified multiple times)
+</ParamField>
+
+---
+
+## Delete subscribers by query
+
+<CodeGroup>
+```bash POST /api/subscribers/query/delete
+curl -u 'username:password' -X POST 'https://listmonk.mysite.com/api/subscribers/query/delete' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "query": "subscribers.attribs->>\"city\" = \"Bangalore\"",
+    "list_ids": [1, 2],
+    "subscription_status": "unsubscribed"
+  }'
+```
+</CodeGroup>
+
+Deletes subscribers based on an arbitrary SQL query.
+
+**Authentication:** Required  
+**Permission:** `subscribers:manage` and `subscribers:sql_query`
+
+### Request Body
+
+<ParamField body="query" type="string">
+  SQL expression for filtering (requires `subscribers:sql_query` permission)
+</ParamField>
+
+<ParamField body="search" type="string">
+  Search term to filter subscribers
+</ParamField>
+
+<ParamField body="list_ids" type="array">
+  Filter by list IDs
+</ParamField>
+
+<ParamField body="subscription_status" type="string">
+  Filter by subscription status
+</ParamField>
+
+<ParamField body="all" type="boolean">
+  If true, deletes all subscribers (ignores other filters)
+</ParamField>
+
+---
+
+## Blocklist subscribers by query
+
+<CodeGroup>
+```bash PUT /api/subscribers/query/blocklist
+curl -u 'username:password' -X PUT 'https://listmonk.mysite.com/api/subscribers/query/blocklist' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "query": "subscribers.attribs->>\"bounced\" = \"true\""
+  }'
+```
+</CodeGroup>
+
+Blocklists subscribers based on an arbitrary SQL query.
+
+**Authentication:** Required  
+**Permission:** `subscribers:manage` and `subscribers:sql_query`
+
+### Request Body
+
+Same parameters as delete by query.
+
+---
+
+## Manage subscriber lists by query
+
+<CodeGroup>
+```bash PUT /api/subscribers/query/lists
+curl -u 'username:password' -X PUT 'https://listmonk.mysite.com/api/subscribers/query/lists' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "query": "subscribers.attribs->>\"city\" = \"Bangalore\"",
+    "action": "add",
+    "target_list_ids": [3],
+    "status": "confirmed"
+  }'
+```
+</CodeGroup>
+
+Manages list subscriptions for subscribers matching a query.
+
+**Authentication:** Required  
+**Permission:** `subscribers:manage` and `subscribers:sql_query`
+
+### Request Body
+
+<ParamField body="query" type="string">
+  SQL expression for filtering
+</ParamField>
+
+<ParamField body="search" type="string">
+  Search term
+</ParamField>
+
+<ParamField body="list_ids" type="array">
+  Source list IDs to filter by
+</ParamField>
+
+<ParamField body="target_list_ids" type="array" required>
+  Target list IDs for the action
+</ParamField>
+
+<ParamField body="action" type="string" required>
+  Action: `add`, `remove`, or `unsubscribe`
+</ParamField>
+
+<ParamField body="status" type="string">
+  Subscription status when adding
+</ParamField>
+
+<ParamField body="subscription_status" type="string">
+  Filter by current subscription status
+</ParamField>
+
+---
+
+## Export subscribers (CSV)
+
+<CodeGroup>
+```bash GET /api/subscribers/export
+curl -u 'username:password' 'https://listmonk.mysite.com/api/subscribers/export' \
+  -G \
+  -d 'list_id=1' \
+  -d 'subscription_status=confirmed' \
+  -o subscribers.csv
+```
+</CodeGroup>
+
+Exports subscribers as a CSV file.
+
+**Authentication:** Required  
+**Permission:** `subscribers:get_all` or `subscribers:get`
+
+### Query Parameters
+
+<ParamField query="list_id" type="integer">
+  Filter by list ID
+</ParamField>
+
+<ParamField query="id" type="integer">
+  Export specific subscriber IDs (can be specified multiple times)
+</ParamField>
+
+<ParamField query="subscription_status" type="string">
+  Filter by subscription status
+</ParamField>
+
+<ParamField query="query" type="string">
+  SQL expression for filtering
+</ParamField>
+
+<ParamField query="search" type="string">
+  Search term
+</ParamField>
+
+### Response
+
+Returns a CSV file with columns: `uuid`, `email`, `name`, `attributes`, `status`, `created_at`, `updated_at`
+
+---
+
+## Get subscriber bounces
+
+<CodeGroup>
+```bash GET /api/subscribers/:id/bounces
+curl -u 'username:password' 'https://listmonk.mysite.com/api/subscribers/1/bounces'
+```
+</CodeGroup>
+
+Retrieves bounce records for a subscriber.
+
+**Authentication:** Required  
+**Permission:** `bounces:get`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Subscriber ID
+</ParamField>
+
+---
+
+## Delete subscriber bounces
+
+<CodeGroup>
+```bash DELETE /api/subscribers/:id/bounces
+curl -u 'username:password' -X DELETE 'https://listmonk.mysite.com/api/subscribers/1/bounces'
+```
+</CodeGroup>
+
+Deletes all bounce records for a subscriber.
+
+**Authentication:** Required  
+**Permission:** `bounces:manage`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Subscriber ID
+</ParamField>

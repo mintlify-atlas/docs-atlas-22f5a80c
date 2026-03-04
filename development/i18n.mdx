@@ -1,0 +1,472 @@
+---
+title: Internationalization (i18n)
+description: Add and manage translations for listmonk in multiple languages
+---
+
+listmonk supports internationalization (i18n) for both the admin interface and public-facing pages, with language files managed in JSON format.
+
+## Overview
+
+The i18n system is designed to work seamlessly across:
+- **Backend**: Go-based translation using `internal/i18n` package
+- **Frontend**: Vue.js with vue-i18n plugin
+- **Email Templates**: Template variables for multilingual content
+- **Public Pages**: Subscription forms, archive pages, unsubscribe pages
+
+<Note>
+The same JSON language map is used by both the Go backend and Vue.js frontend, ensuring consistency across the application.
+</Note>
+
+## Language File Structure
+
+All language files are located in the `/i18n` directory at the root of the project.
+
+### File Format
+
+Each language file is a JSON file named with its language code:
+
+```
+i18n/
+├── en.json          # English (base language)
+├── es.json          # Spanish
+├── fr.json          # French
+├── de.json          # German
+├── zh-CN.json       # Chinese (Simplified)
+├── pt-BR.json       # Portuguese (Brazil)
+└── ...
+```
+
+### Language File Structure
+
+Every language file must contain the following metadata fields:
+
+```json
+{
+  "_.code": "en",
+  "_.name": "English (en)",
+  
+  "admin.errorMarshallingConfig": "Error marshalling config: {error}",
+  "campaigns.newCampaign": "New campaign",
+  "lists.confirmDelete": "Delete {name}",
+  "globals.buttons.save": "Save",
+  "subscribers.status.enabled": "Enabled",
+  ...
+}
+```
+
+<Tip>
+The `_.code` and `_.name` fields are required for every language file and are used to identify and display the language in the UI.
+</Tip>
+
+## Currently Available Languages
+
+listmonk currently supports 34+ languages:
+
+- English (en)
+- Spanish (es)
+- French (fr, fr-CA)
+- German (de)
+- Chinese (zh-CN, zh-TW)
+- Portuguese (pt, pt-BR)
+- Russian (ru)
+- Japanese (jp)
+- Korean (ko)
+- Italian (it)
+- Dutch (nl)
+- Polish (pl)
+- Turkish (tr)
+- Czech (cs-cz)
+- And many more...
+
+## Adding a New Language
+
+<Steps>
+  <Step title="Copy the English template">
+    Start with the English language file as your template:
+    
+    ```bash
+    cp i18n/en.json i18n/[language-code].json
+    ```
+    
+    For example, for Swedish:
+    ```bash
+    cp i18n/en.json i18n/se.json
+    ```
+  </Step>
+
+  <Step title="Update metadata">
+    Edit the metadata fields at the top of your new file:
+    
+    ```json
+    {
+      "_.code": "se",
+      "_.name": "Swedish (se)",
+      ...
+    }
+    ```
+  </Step>
+
+  <Step title="Translate strings">
+    Translate all the string values while keeping the keys unchanged:
+    
+    ```json
+    {
+      "_.code": "se",
+      "_.name": "Swedish (se)",
+      "campaigns.newCampaign": "Ny kampanj",
+      "lists.confirmDelete": "Ta bort {name}",
+      "globals.buttons.save": "Spara"
+    }
+    ```
+    
+    <Note>
+    Keep placeholder variables like `{error}`, `{name}`, `{count}` exactly as they appear in the English version.
+    </Note>
+  </Step>
+
+  <Step title="Test your translation">
+    1. Rebuild the application: `make dist`
+    2. Start listmonk: `./listmonk`
+    3. Go to **Settings** → **Language** in the admin UI
+    4. Select your new language from the dropdown
+  </Step>
+
+  <Step title="Submit your translation">
+    See the [Contributing Guide](/development/contributing) for instructions on submitting your translation as a pull request.
+  </Step>
+</Steps>
+
+## Translation Variables
+
+### Placeholder Syntax
+
+Translation strings can contain placeholder variables that are substituted at runtime:
+
+```json
+{
+  "globals.messages.notFound": "{name} not found",
+  "campaigns.errorSendTest": "Error sending test: {error}",
+  "lists.confirmDelete": "Delete {name}"
+}
+```
+
+Variables are wrapped in curly braces: `{variableName}`
+
+### Plural Forms
+
+Use the pipe character `|` to separate singular and plural forms:
+
+```json
+{
+  "globals.terms.subscriber": "Subscriber | Subscribers",
+  "globals.terms.list": "List | Lists",
+  "campaigns.campaignSent": "{count} campaign sent | {count} campaigns sent"
+}
+```
+
+<Note>
+The backend's `Tc()` function and frontend's `$tc()` function automatically select the correct form based on the count.
+</Note>
+
+### Nested References
+
+You can reference other translation keys within strings:
+
+```json
+{
+  "globals.buttons.add": "Add",
+  "lists.addButton": "{globals.buttons.add} list"
+}
+```
+
+## Backend i18n Implementation
+
+The Go backend uses a custom i18n package located at `internal/i18n/i18n.go`.
+
+### Translation Functions
+
+#### T() - Simple Translation
+
+```go
+i18n.T("campaigns.newCampaign")
+// Returns: "New campaign"
+```
+
+#### Ts() - Translation with Substitution
+
+```go
+i18n.Ts("globals.messages.notFound", 
+    "name", "campaigns",
+    "error", err.Error())
+// Returns: "campaigns not found: [error message]"
+```
+
+Parameters are passed as pairs of key-value strings.
+
+#### Tc() - Translation with Count (Pluralization)
+
+```go
+i18n.Tc("globals.terms.subscriber", 1)
+// Returns: "Subscriber"
+
+i18n.Tc("globals.terms.subscriber", 5)
+// Returns: "Subscribers"
+```
+
+### Loading Language Files
+
+Language files are automatically loaded from the `i18n/` directory when embedded in the binary:
+
+```go
+import "github.com/knadh/listmonk/internal/i18n"
+
+// Load language file
+langData, _ := os.ReadFile("i18n/en.json")
+i18n, err := i18n.New(langData)
+```
+
+## Frontend i18n Implementation
+
+The frontend uses the **vue-i18n** plugin for translations.
+
+### Using Translations in Vue Components
+
+#### Simple Translation
+
+```vue
+<template>
+  <h1>{{ $t('campaigns.newCampaign') }}</h1>
+  <!-- Renders: New campaign -->
+</template>
+```
+
+#### Translation with Variables
+
+```vue
+<template>
+  <p>{{ $t('globals.messages.notFound', { name: 'Campaign' }) }}</p>
+  <!-- Renders: Campaign not found -->
+</template>
+```
+
+#### Pluralization
+
+```vue
+<template>
+  <p>{{ $tc('globals.terms.subscriber', count) }}</p>
+  <!-- Renders: "Subscriber" if count=1, "Subscribers" if count>1 -->
+</template>
+```
+
+### Translation in JavaScript
+
+```javascript
+import Vue from 'vue';
+
+// In component methods
+this.$t('campaigns.newCampaign');
+this.$t('globals.messages.notFound', { name: 'List' });
+this.$tc('globals.terms.list', count);
+```
+
+## Admin UI Translations
+
+The admin interface is fully translatable. Key areas include:
+
+### Navigation and Menus
+
+```json
+{
+  "menu.dashboard": "Dashboard",
+  "menu.lists": "Lists",
+  "menu.subscribers": "Subscribers",
+  "menu.campaigns": "Campaigns",
+  "menu.media": "Media",
+  "menu.settings": "Settings"
+}
+```
+
+### Forms and Buttons
+
+```json
+{
+  "globals.buttons.save": "Save",
+  "globals.buttons.cancel": "Cancel",
+  "globals.buttons.delete": "Delete",
+  "globals.buttons.add": "Add",
+  "globals.buttons.edit": "Edit"
+}
+```
+
+### Messages and Notifications
+
+```json
+{
+  "globals.messages.created": "{name} created",
+  "globals.messages.updated": "{name} updated",
+  "globals.messages.deleted": "{name} deleted",
+  "globals.messages.notFound": "{name} not found"
+}
+```
+
+## Public Page Translations
+
+Public-facing pages also support i18n:
+
+### Subscription Forms
+
+```json
+{
+  "public.sub": "Subscribe",
+  "public.unsub": "Unsubscribe",
+  "public.confirmOptinSubTitle": "Confirm subscription",
+  "public.privacyPolicy": "Privacy Policy",
+  "public.invalidFeature": "Feature is not available"
+}
+```
+
+### Archive Pages
+
+```json
+{
+  "campaigns.archive": "Archive",
+  "campaigns.archiveEnable": "Publish to public archive",
+  "campaigns.archiveHelp": "Publish the campaign message on the public archive"
+}
+```
+
+## Email Template Translations
+
+Email templates can use translation variables:
+
+```html
+<!-- In email template -->
+<p>{{ .L.T "public.greeting" }}</p>
+<a href="{{ .UnsubscribeURL }}">{{ .L.T "public.unsub" }}</a>
+```
+
+The `.L` object provides access to the i18n context in templates:
+- `.L.T` - Simple translation
+- `.L.Ts` - Translation with substitution
+- `.L.Tc` - Translation with count
+
+## Testing Translations
+
+<Steps>
+  <Step title="Visual Testing">
+    1. Build the application with your translations: `make dist`
+    2. Start listmonk: `./listmonk`
+    3. Change language in **Settings** → **Language**
+    4. Navigate through all admin pages to verify translations
+  </Step>
+
+  <Step title="Check for Missing Keys">
+    Compare your language file with `en.json` to ensure all keys are present:
+    
+    ```bash
+    # Count keys in English
+    grep -o '"[^"]*":' i18n/en.json | wc -l
+    
+    # Count keys in your language
+    grep -o '"[^"]*":' i18n/[your-lang].json | wc -l
+    ```
+    
+    The counts should match (excluding the metadata fields).
+  </Step>
+
+  <Step title="Test Variable Substitution">
+    Verify that all placeholder variables work correctly by testing features that use them:
+    - Create/delete items (uses `{name}`)
+    - Trigger errors (uses `{error}`)
+    - View counts and stats (uses `{count}`)
+  </Step>
+
+  <Step title="Test Pluralization">
+    Check plural forms by viewing:
+    - Lists with 1 subscriber vs multiple subscribers
+    - Campaigns with different send counts
+    - Any counters throughout the UI
+  </Step>
+</Steps>
+
+## Translation Workflow
+
+### For New Languages
+
+1. Check existing issues/PRs to avoid duplicate work
+2. Copy `en.json` as your template
+3. Translate all strings (this can take several hours)
+4. Test thoroughly in a local instance
+5. Submit a pull request
+
+### For Updating Existing Translations
+
+1. Compare with latest `en.json` to find new/changed keys
+2. Add missing translations
+3. Update any changed strings
+4. Test the changes
+5. Submit a pull request
+
+<Tip>
+Join the discussion on GitHub if you need help with translations or want to coordinate with other translators for your language.
+</Tip>
+
+## Translation Guidelines
+
+### Best Practices
+
+- **Keep it concise**: Admin interfaces work best with short, clear labels
+- **Maintain consistency**: Use the same terms throughout for actions like "Save", "Delete", etc.
+- **Preserve variables**: Never translate placeholder names like `{name}`, `{error}`, `{count}`
+- **Test thoroughly**: Check all UI areas to ensure translations fit properly
+- **Consider context**: Some English words have different meanings in different contexts
+
+### Common Translation Keys
+
+<CodeGroup>
+```json Buttons
+{
+  "globals.buttons.save": "Save",
+  "globals.buttons.cancel": "Cancel",
+  "globals.buttons.delete": "Delete",
+  "globals.buttons.add": "Add",
+  "globals.buttons.edit": "Edit",
+  "globals.buttons.close": "Close"
+}
+```
+
+```json Terms
+{
+  "globals.terms.campaign": "Campaign | Campaigns",
+  "globals.terms.list": "List | Lists",
+  "globals.terms.subscriber": "Subscriber | Subscribers",
+  "globals.terms.template": "Template | Templates"
+}
+```
+
+```json Messages
+{
+  "globals.messages.created": "{name} created",
+  "globals.messages.updated": "{name} updated",
+  "globals.messages.deleted": "{name} deleted",
+  "globals.messages.notFound": "{name} not found",
+  "globals.messages.confirm": "Are you sure?"
+}
+```
+</CodeGroup>
+
+## Resources
+
+- **English base file**: `i18n/en.json` - Always the most up-to-date reference
+- **Backend implementation**: `internal/i18n/i18n.go`
+- **Frontend integration**: `frontend/main.js` (vue-i18n setup)
+- **Translation tool**: Use the UI at [listmonk docs](https://listmonk.app/docs/i18n/) for easier translation workflow
+
+## Contributing Translations
+
+Translations are a valuable contribution to listmonk! See the [Contributing Guide](/development/contributing) for details on:
+
+- Submitting new language files
+- Updating existing translations
+- Translation review process
+- Getting help from the community

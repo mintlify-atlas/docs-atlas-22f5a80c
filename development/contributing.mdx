@@ -1,0 +1,437 @@
+---
+title: Contributing
+description: Guidelines for contributing to the listmonk project
+---
+
+Welcome to listmonk! We appreciate your interest in contributing to the project. This guide will help you understand how to contribute effectively.
+
+## Ways to Contribute
+
+You can contribute to listmonk in several ways:
+
+1. **Report Bugs** - Help identify and document issues
+2. **Suggest Features** - Propose enhancements that benefit the community
+3. **Improve Documentation** - Submit corrections and improvements
+4. **Translate** - Add or update language translations
+5. **Submit Code** - Contribute bug fixes and new features via pull requests
+
+## Before You Start
+
+<Note>
+listmonk is free and open source software maintained by volunteers who share it with the world for free. Please be respectful of maintainers' time and expertise.
+</Note>
+
+### Code of Conduct
+
+When participating in the listmonk community:
+
+- **Be respectful** - Use friendly, professional language
+- **Be patient** - Maintainers owe you nothing; they contribute their time voluntarily
+- **Do your research** - Search existing issues and documentation before asking
+- **Be collaborative** - Focus on constructive discussions
+- **Don't demand** - Feature requests are suggestions, not requirements
+- **Avoid nitpicking** - Stay focused on meaningful improvements
+
+<Tip>
+Remember: FOSS project maintainers owe you nothing (unless you have an explicit agreement). If these guidelines are unacceptable, you can always fork the project under the terms of the AGPL-3.0 license.
+</Tip>
+
+## Reporting Bugs
+
+Good bug reports are extremely helpful for improving listmonk.
+
+<Steps>
+  <Step title="Search for existing issues">
+    Before creating a new bug report, search the [GitHub issues](https://github.com/knadh/listmonk/issues) to avoid duplicates.
+  </Step>
+
+  <Step title="Use the bug report template">
+    When creating a bug report:
+    
+    - Use the bug reporting issue template
+    - Provide a clear, concise description
+    - Include steps to reproduce the bug
+    - Describe expected vs actual behavior
+    - Include version information, environment details, and logs
+    - Add screenshots if applicable
+  </Step>
+
+  <Step title="Provide complete information">
+    One-liner reports are difficult to understand and review. Maintainers may close unclear issues that lack enough information to reproduce a bug.
+  </Step>
+</Steps>
+
+[Report a bug here](https://github.com/knadh/listmonk/issues/new?assignees=&labels=bug&template=bug_report.md)
+
+### Bug Report Checklist
+
+- [ ] Searched existing issues for duplicates
+- [ ] Clear description of the problem
+- [ ] Step-by-step reproduction instructions
+- [ ] Expected behavior documented
+- [ ] Actual behavior documented
+- [ ] listmonk version and environment details
+- [ ] Relevant logs or error messages
+- [ ] Screenshots (if applicable)
+
+## Suggesting Features
+
+Feature suggestions help shape listmonk's future, but they must align with the project's scope and goals.
+
+<Steps>
+  <Step title="Check for existing requests">
+    Search [existing issues](https://github.com/knadh/listmonk/issues) to ensure your idea hasn't already been suggested.
+  </Step>
+
+  <Step title="Clearly explain the feature">
+    When requesting a feature:
+    
+    - Explain **why** it's needed (not just what)
+    - Describe the problem it solves
+    - Explain how it benefits many users (not just you)
+    - Consider how it fits listmonk's scope and philosophy
+    - Provide technical details if possible
+    - Suggest implementation approaches
+  </Step>
+
+  <Step title="Be prepared for discussion">
+    - Maintainers decide what fits the project's direction
+    - Respect their expertise and decisions
+    - Engage in constructive, friendly discussions
+    - Provide additional details if requested
+  </Step>
+</Steps>
+
+[Suggest a feature here](https://github.com/knadh/listmonk/issues/new?assignees=&labels=enhancement&template=feature-or-change-request.md&title=)
+
+<Note>
+It is your responsibility as the requester to clearly explain and justify why a change is warranted. Maintainers may close unclear feature requests that lack sufficient detail.
+</Note>
+
+## Improving Documentation
+
+Documentation improvements are always welcome!
+
+### Documentation Repository
+
+The documentation website is available at [listmonk.app/docs](https://listmonk.app/docs).
+
+You can submit corrections and improvements to the [docs repository](https://github.com/knadh/listmonk/tree/master/docs).
+
+### Types of Documentation Contributions
+
+- Fix typos and grammatical errors
+- Clarify existing explanations
+- Add missing information
+- Update outdated content
+- Add examples and use cases
+- Improve organization and navigation
+
+<Tip>
+Small documentation fixes can often be made directly through GitHub's web interface - no local setup required!
+</Tip>
+
+## Contributing Translations
+
+listmonk is available in 34+ languages thanks to community contributions.
+
+### How to Contribute Translations
+
+1. **New language packs** - Create a new language file based on `i18n/en.json`
+2. **Update existing translations** - Improve or complete existing language files
+3. **Fix translation errors** - Correct mistakes in existing translations
+
+### Translation Workflow
+
+There is a UI tool available to make translations easier. See the [i18n documentation](/development/i18n) for detailed instructions.
+
+<Steps>
+  <Step title="Choose your approach">
+    - Manual: Copy and edit JSON files
+    - Tool-assisted: Use the translation UI at [listmonk.app/docs/i18n](https://listmonk.app/docs/i18n)
+  </Step>
+
+  <Step title="Create your translation">
+    Follow the [Internationalization guide](/development/i18n) for:
+    - File structure and format
+    - Translation guidelines
+    - Testing procedures
+  </Step>
+
+  <Step title="Submit your translation">
+    Create a pull request with your language file.
+  </Step>
+</Steps>
+
+## Pull Requests
+
+Submitting code contributions requires careful consideration and preparation.
+
+### Understanding Pull Requests
+
+Pull requests can be challenging for several reasons:
+
+- They must align with the project's scope, goals, and technical standards
+- Code quality, style, and conventions must match the project's standards
+- Performance, usability, and stability impacts must be understood
+- Reviewing PRs often requires more time than creating them
+
+Ultimately, **whether a PR is accepted is at the maintainers' discretion**. Please respect their deeper understanding of the overall project.
+
+### Pull Request Guidelines
+
+<Steps>
+  <Step title="Send a proposal first">
+    Before writing code, open an issue describing:
+    
+    - What you aim to accomplish
+    - Why it makes sense for the project
+    - How you plan to implement it (with technical details)
+    - Any potential impacts or trade-offs
+    
+    **This saves everyone time** by getting alignment before you invest effort in coding.
+  </Step>
+
+  <Step title="Keep PRs small and focused">
+    - Send small PRs with well-defined scopes
+    - One feature or fix per PR
+    - Avoid bundling multiple unrelated changes
+    - Smaller PRs are easier to review and test
+  </Step>
+
+  <Step title="Follow code standards">
+    Ensure your code follows listmonk's conventions:
+    
+    **Go Code:**
+    - Follow Go standard formatting (`gofmt`)
+    - Write clear, idiomatic Go
+    - Include comments for exported functions
+    - Add tests where appropriate
+    
+    **Frontend Code:**
+    - Follow ESLint configuration (`.eslintrc.js`)
+    - Use Vue.js best practices
+    - Match existing code style
+    - Test in the browser
+  </Step>
+
+  <Step title="Test thoroughly">
+    Before submitting:
+    
+    - Test your changes locally
+    - Verify builds succeed: `make dist`
+    - Run tests: `make test`
+    - Test in production-like conditions
+    - Document testing steps in the PR
+  </Step>
+
+  <Step title="Write clear PR descriptions">
+    Your PR should include:
+    
+    - Clear description of what changed
+    - Why the change was made
+    - How it was tested
+    - Any breaking changes or migrations needed
+    - Screenshots (for UI changes)
+    - Related issue numbers
+  </Step>
+
+  <Step title="Be responsive to feedback">
+    - Respond to review comments promptly
+    - Make requested changes
+    - Explain your reasoning when you disagree
+    - Be open to different approaches
+  </Step>
+</Steps>
+
+<Note>
+PRs may change considerably with multiple commits before approval. Once approved, PRs with multiple commits will be squashed into a single commit during merging.
+</Note>
+
+### What Not to Do
+
+- ❌ Skip the proposal step for significant changes
+- ❌ Submit large, monolithic PRs
+- ❌ Bundle multiple unrelated features
+- ❌ Ignore code style and linting rules
+- ❌ Submit untested code
+- ❌ Be defensive about feedback
+- ❌ Demand immediate review or merging
+
+### PR Checklist
+
+- [ ] Opened an issue to discuss the change first
+- [ ] PR addresses a single, well-defined problem
+- [ ] Code follows project conventions and style
+- [ ] Builds successfully (`make dist`)
+- [ ] Tests pass (`make test`)
+- [ ] Tested locally and documented testing approach
+- [ ] PR description is clear and complete
+- [ ] Commits are clean and well-organized
+- [ ] No debugging code or commented-out code
+- [ ] Documentation updated (if needed)
+
+## Code Style Guidelines
+
+### Backend (Go)
+
+- Use `gofmt` for formatting
+- Follow [Effective Go](https://golang.org/doc/effective_go.html) principles
+- Keep functions focused and small
+- Write meaningful comments for exported items
+- Handle errors explicitly
+- Use meaningful variable names
+- Keep dependencies minimal
+
+### Frontend (Vue.js)
+
+- Follow the ESLint configuration in `.eslintrc.js`
+- Use Vue.js conventions and best practices
+- Keep components focused and reusable
+- Use Vuex for global state management
+- Follow the AirBnB style guide (configured in ESLint)
+- Use camelCase for JavaScript (backend expects snake_case)
+
+### General Guidelines
+
+- Write self-documenting code
+- Add comments for complex logic
+- Keep files organized and focused
+- Remove dead code and TODOs
+- Avoid over-engineering
+
+## Testing Requirements
+
+### Backend Testing
+
+Run Go tests before submitting:
+
+```bash
+make test
+```
+
+If your PR adds new functionality:
+- Add unit tests for new functions
+- Ensure existing tests pass
+- Test edge cases and error conditions
+
+### Frontend Testing
+
+Test UI changes:
+- Test in latest Chrome/Firefox/Safari
+- Check responsive design on mobile
+- Verify translations still work
+- Test with keyboard navigation
+- Check for console errors
+
+### Integration Testing
+
+For significant changes:
+- Test the complete build: `make dist`
+- Run in Docker to test packaging
+- Test database migrations
+- Test upgrade path from previous version
+
+## Documentation Updates
+
+When submitting code changes, update documentation if:
+
+- You add new features or functionality
+- You change existing behavior
+- You add new configuration options
+- You modify APIs or interfaces
+- You change installation or setup procedures
+
+Include documentation updates in the same PR as code changes.
+
+## Development Setup
+
+Before contributing code, set up your development environment:
+
+1. See the [Developer Setup](/development/developer-setup) guide
+2. Fork the repository on GitHub
+3. Clone your fork locally
+4. Create a feature branch for your changes
+5. Make changes and test locally
+6. Push to your fork and create a pull request
+
+### Git Workflow
+
+```bash
+# Fork on GitHub, then clone your fork
+git clone https://github.com/YOUR-USERNAME/listmonk.git
+cd listmonk
+
+# Add upstream remote
+git remote add upstream https://github.com/knadh/listmonk.git
+
+# Create a feature branch
+git checkout -b feature/my-feature
+
+# Make changes, commit them
+git add .
+git commit -m "Add feature: description"
+
+# Push to your fork
+git push origin feature/my-feature
+
+# Create pull request on GitHub
+```
+
+## License
+
+By contributing to listmonk, you agree that your contributions will be licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
+
+### What This Means
+
+- listmonk is free and open source software
+- You can redistribute and modify it under AGPL-3.0 terms
+- If you run a modified version as a network service, you must make your source code available
+- Your contributions become part of the AGPL-3.0 licensed codebase
+
+<Note>
+Read the full [LICENSE](https://github.com/knadh/listmonk/blob/master/LICENSE) for complete terms.
+</Note>
+
+### Copyright
+
+By submitting a contribution:
+- You certify that you have the right to submit the contribution
+- You agree to license your contribution under AGPL-3.0
+- You understand your contribution will be publicly available
+
+## Getting Help
+
+If you need help contributing:
+
+- **Documentation**: Check the [official docs](https://listmonk.app/docs)
+- **Existing Issues**: Search [GitHub issues](https://github.com/knadh/listmonk/issues)
+- **Discussions**: Join discussions on GitHub
+- **Code**: Review existing code for examples
+
+<Tip>
+Before asking for help, make sure you've searched the documentation and existing issues. This saves everyone time!
+</Tip>
+
+## Recognition
+
+Contributors are recognized in:
+
+- GitHub contributor graphs
+- Release notes (for significant contributions)
+- The project's commit history
+
+Your contributions help make listmonk better for everyone. Thank you!
+
+## Summary
+
+Contributing to listmonk is rewarding and helps thousands of users worldwide. Remember:
+
+1. **Be respectful** - Maintainers are volunteers
+2. **Do your research** - Check docs and existing issues
+3. **Propose first** - Discuss significant changes before coding
+4. **Stay focused** - Small, focused PRs are better
+5. **Test thoroughly** - Verify your changes work
+6. **Be patient** - Reviews take time
+
+Thank you for contributing to listmonk! 🎉

@@ -1,0 +1,433 @@
+---
+title: 'Templates API'
+description: 'Manage email templates for campaigns and transactional messages'
+---
+
+## Get templates
+
+<CodeGroup>
+```bash GET /api/templates
+curl -u 'username:password' 'https://listmonk.mysite.com/api/templates'
+```
+</CodeGroup>
+
+Retrieves all email templates.
+
+**Authentication:** Required  
+**Permission:** `templates:get`
+
+### Query Parameters
+
+<ParamField query="no_body" type="boolean" default="false">
+  If true, excludes template body from response for faster loading
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="array">
+  Array of template objects
+  <Expandable title="template object">
+    <ResponseField name="id" type="integer">
+      Template ID
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Template name
+    </ResponseField>
+    <ResponseField name="type" type="string">
+      Template type: `campaign` or `tx` (transactional)
+    </ResponseField>
+    <ResponseField name="subject" type="string">
+      Email subject (for tx templates only)
+    </ResponseField>
+    <ResponseField name="body" type="string">
+      Template HTML body
+    </ResponseField>
+    <ResponseField name="body_source" type="string">
+      Original template source (for visual editor templates)
+    </ResponseField>
+    <ResponseField name="is_default" type="boolean">
+      Whether this is the default template
+    </ResponseField>
+    <ResponseField name="created_at" type="string">
+      Creation timestamp
+    </ResponseField>
+    <ResponseField name="updated_at" type="string">
+      Last update timestamp
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Get template
+
+<CodeGroup>
+```bash GET /api/templates/:id
+curl -u 'username:password' 'https://listmonk.mysite.com/api/templates/1'
+```
+</CodeGroup>
+
+Retrieves a single template by ID.
+
+**Authentication:** Required  
+**Permission:** `templates:get`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Template ID
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="no_body" type="boolean" default="false">
+  If true, excludes template body
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="object">
+  Returns a single template object
+</ResponseField>
+
+---
+
+## Create template
+
+<CodeGroup>
+```bash POST /api/templates
+curl -u 'username:password' 'https://listmonk.mysite.com/api/templates' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Newsletter Template",
+    "type": "campaign",
+    "body": "<!DOCTYPE html><html><body>{{ template \"content\" . }}</body></html>"
+  }'
+```
+</CodeGroup>
+
+Creates a new email template.
+
+**Authentication:** Required  
+**Permission:** `templates:manage`
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  Template name (max 2000 characters)
+</ParamField>
+
+<ParamField body="type" type="string" required>
+  Template type:
+  - `campaign`: For email campaigns (must contain `{{ template "content" . }}` placeholder)
+  - `tx`: For transactional emails
+</ParamField>
+
+<ParamField body="body" type="string" required>
+  Template HTML body. Campaign templates must include the `{{ template "content" . }}` placeholder where campaign content will be inserted.
+</ParamField>
+
+<ParamField body="subject" type="string">
+  Email subject line (required for `tx` templates, ignored for `campaign` templates)
+</ParamField>
+
+<ParamField body="body_source" type="string">
+  Original template source for visual editor templates
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="object">
+  Returns the created template object
+</ResponseField>
+
+### Example: Campaign Template
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; }
+    .container { max-width: 600px; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>{{ .Campaign.Name }}</h1>
+    {{ template "content" . }}
+    <footer>
+      <a href="{{ UnsubscribeURL }}">Unsubscribe</a>
+    </footer>
+  </div>
+</body>
+</html>
+```
+
+### Example: Transactional Template
+
+```html
+<!DOCTYPE html>
+<html>
+<body>
+  <h1>Welcome {{ .Subscriber.Name }}!</h1>
+  <p>Your account has been created.</p>
+  {{ if .Tx.Data.username }}
+    <p>Username: {{ .Tx.Data.username }}</p>
+  {{ end }}
+</body>
+</html>
+```
+
+---
+
+## Update template
+
+<CodeGroup>
+```bash PUT /api/templates/:id
+curl -u 'username:password' -X PUT 'https://listmonk.mysite.com/api/templates/1' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Updated Template Name",
+    "body": "<!DOCTYPE html><html><body>{{ template \"content\" . }}</body></html>"
+  }'
+```
+</CodeGroup>
+
+Updates an existing template.
+
+**Authentication:** Required  
+**Permission:** `templates:manage`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Template ID
+</ParamField>
+
+### Request Body
+
+<ParamField body="name" type="string">
+  Template name
+</ParamField>
+
+<ParamField body="body" type="string">
+  Template HTML body
+</ParamField>
+
+<ParamField body="subject" type="string">
+  Email subject (for tx templates)
+</ParamField>
+
+<ParamField body="body_source" type="string">
+  Template source
+</ParamField>
+
+<Note>
+  The template `type` cannot be changed after creation. Only provided fields will be updated.
+</Note>
+
+---
+
+## Set default template
+
+<CodeGroup>
+```bash PUT /api/templates/:id/default
+curl -u 'username:password' -X PUT 'https://listmonk.mysite.com/api/templates/1/default'
+```
+</CodeGroup>
+
+Sets a template as the default template for new campaigns.
+
+**Authentication:** Required  
+**Permission:** `templates:manage`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Template ID to set as default
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="array">
+  Returns the updated list of all templates
+</ResponseField>
+
+---
+
+## Delete template
+
+<CodeGroup>
+```bash DELETE /api/templates/:id
+curl -u 'username:password' -X DELETE 'https://listmonk.mysite.com/api/templates/1'
+```
+</CodeGroup>
+
+Deletes a template. The default template cannot be deleted.
+
+**Authentication:** Required  
+**Permission:** `templates:manage`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Template ID
+</ParamField>
+
+### Response
+
+<ResponseField name="data" type="boolean">
+  Returns `true` on successful deletion
+</ResponseField>
+
+<Warning>
+  Campaigns using this template will not be affected as the template body is compiled into the campaign when it's created.
+</Warning>
+
+---
+
+## Preview template
+
+<CodeGroup>
+```bash GET /api/templates/:id/preview
+curl -u 'username:password' 'https://listmonk.mysite.com/api/templates/1/preview'
+```
+</CodeGroup>
+
+Generates an HTML preview of a template with dummy data.
+
+**Authentication:** Required  
+**Permission:** `templates:get`
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Template ID
+</ParamField>
+
+### Response
+
+Returns rendered HTML preview with sample subscriber and campaign data.
+
+---
+
+## Preview template body
+
+<CodeGroup>
+```bash POST /api/templates/preview
+curl -u 'username:password' -X POST 'https://listmonk.mysite.com/api/templates/preview' \
+  -d 'template_type=campaign' \
+  -d 'body=<!DOCTYPE html><html><body>{{ template "content" . }}</body></html>'
+```
+</CodeGroup>
+
+Previews a template body without saving it.
+
+**Authentication:** Required  
+**Permission:** `templates:get`
+
+### Request Body
+
+<ParamField body="template_type" type="string" default="campaign">
+  Template type: `campaign` or `tx`
+</ParamField>
+
+<ParamField body="body" type="string" required>
+  Template HTML body to preview
+</ParamField>
+
+### Response
+
+Returns rendered HTML preview.
+
+---
+
+## Template Variables
+
+Templates support Go template syntax with the following variables:
+
+### Campaign Templates
+
+<ResponseField name=".Campaign" type="object">
+  <Expandable title="properties">
+    <ResponseField name=".Campaign.Name" type="string">
+      Campaign name
+    </ResponseField>
+    <ResponseField name=".Campaign.Subject" type="string">
+      Email subject
+    </ResponseField>
+    <ResponseField name=".Campaign.FromEmail" type="string">
+      From email address
+    </ResponseField>
+    <ResponseField name=".Campaign.UUID" type="string">
+      Campaign UUID
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name=".Subscriber" type="object">
+  <Expandable title="properties">
+    <ResponseField name=".Subscriber.UUID" type="string">
+      Subscriber UUID
+    </ResponseField>
+    <ResponseField name=".Subscriber.Email" type="string">
+      Email address
+    </ResponseField>
+    <ResponseField name=".Subscriber.Name" type="string">
+      Full name
+    </ResponseField>
+    <ResponseField name=".Subscriber.FirstName" type="string">
+      First name (parsed from full name)
+    </ResponseField>
+    <ResponseField name=".Subscriber.LastName" type="string">
+      Last name (parsed from full name)
+    </ResponseField>
+    <ResponseField name=".Subscriber.Attribs" type="object">
+      Custom attributes (access with `.Subscriber.Attribs.key`)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Transactional Templates
+
+<ResponseField name=".Tx" type="object">
+  <Expandable title="properties">
+    <ResponseField name=".Tx.Data" type="object">
+      Custom data passed in API request (access with `.Tx.Data.key`)
+    </ResponseField>
+    <ResponseField name=".Tx.Subject" type="string">
+      Email subject
+    </ResponseField>
+    <ResponseField name=".Tx.FromEmail" type="string">
+      From email
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Template Functions
+
+<ResponseField name="TrackLink" type="function">
+  `{{ TrackLink "https://example.com" }}` - Creates a tracked link
+</ResponseField>
+
+<ResponseField name="TrackView" type="function">
+  `{{ TrackView }}` - Inserts a tracking pixel
+</ResponseField>
+
+<ResponseField name="UnsubscribeURL" type="function">
+  `{{ UnsubscribeURL }}` - Generates unsubscribe URL
+</ResponseField>
+
+<ResponseField name="ManageURL" type="function">
+  `{{ ManageURL }}` - Generates subscription management URL
+</ResponseField>
+
+<ResponseField name="OptinURL" type="function">
+  `{{ OptinURL }}` - Generates opt-in confirmation URL
+</ResponseField>
+
+<ResponseField name="Date" type="function">
+  `{{ Date "2006-01-02" }}` - Formats current date
+</ResponseField>

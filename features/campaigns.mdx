@@ -1,0 +1,595 @@
+---
+title: Campaigns
+description: Create, schedule, and manage email campaigns with advanced features and analytics
+---
+
+Campaigns are the core messaging feature in listmonk. Create one-time or recurring email campaigns with rich content, scheduling, and tracking.
+
+## Campaign Data Model
+
+Each campaign includes:
+
+- **ID**: Unique numeric identifier
+- **UUID**: Unique universal identifier for tracking
+- **Name**: Campaign name for internal reference
+- **Subject**: Email subject line (supports template variables)
+- **From Email**: Sender email address
+- **Body**: Campaign content (format depends on content type)
+- **Body Source**: Source content for visual editor campaigns
+- **Alt Body**: Plain text alternative for HTML emails
+- **Content Type**: `richtext`, `html`, `plain`, `markdown`, or `visual`
+- **Status**: `draft`, `running`, `scheduled`, `paused`, `cancelled`, or `finished`
+- **Type**: `regular` or `optin`
+- **Send At**: Scheduled send time (optional)
+- **Headers**: Custom email headers (JSONB array)
+- **Attribs**: Campaign attributes (JSONB)
+- **Tags**: Array of tags for organization
+- **Messenger**: Backend messenger ID (e.g., `email`, `email-0`)
+- **Template ID**: Reference to template
+- **Lists**: Target list IDs
+- **Archive**: Enable public archive viewing
+- **Archive Slug**: Custom URL slug for archive
+
+## Creating Campaigns
+
+<Steps>
+  <Step title="Basic Information">
+    Configure campaign essentials:
+    
+    - **Name**: Internal identifier (1-500 characters)
+    - **Subject**: Email subject line (up to 5000 characters, supports templates)
+    - **From Email**: Sender address (defaults to `app.from_email`)
+  </Step>
+  
+  <Step title="Select Lists">
+    Choose one or more target lists. Campaign will be sent to subscribers with:
+    - Subscriber status: `enabled`
+    - Subscription status: `confirmed` (for regular campaigns)
+    - Or `unconfirmed` (for opt-in campaigns)
+  </Step>
+  
+  <Step title="Choose Content Type">
+    Select content format and create your message
+  </Step>
+  
+  <Step title="Select Template">
+    Choose a template to wrap your campaign content
+  </Step>
+  
+  <Step title="Configure Options">
+    Set messenger, scheduling, headers, and archive settings
+  </Step>
+</Steps>
+
+## Campaign Types
+
+<Tabs>
+  <Tab title="Regular">
+    ### Regular Campaigns
+    
+    Standard email campaigns sent to confirmed subscribers.
+    
+    **Characteristics:**
+    - Sent to subscribers with `confirmed` subscription status
+    - Most common campaign type
+    - Full tracking and analytics
+    - Supports all content types
+    
+    **Use cases:**
+    - Newsletters
+    - Product announcements
+    - Marketing campaigns
+    - Weekly digests
+  </Tab>
+  
+  <Tab title="Opt-in">
+    ### Opt-in Campaigns
+    
+    Special campaigns sent to unconfirmed subscribers on double opt-in lists.
+    
+    **Characteristics:**
+    - Sent to subscribers with `unconfirmed` subscription status
+    - Automatically includes opt-in confirmation links
+    - Template includes `{{ OptinURL }}` variable
+    - Helps convert unconfirmed subscribers
+    
+    **Use cases:**
+    - Double opt-in confirmation reminders
+    - Welcome series for pending subscribers
+    - Re-engagement for unconfirmed contacts
+    
+    <Note>
+      System automatically generates opt-in message template when creating this campaign type
+    </Note>
+  </Tab>
+</Tabs>
+
+## Content Types
+
+<CardGroup cols={2}>
+  <Card title="Rich Text" icon="align-left">
+    WYSIWYG editor with formatting toolbar
+    
+    - Easy to use for non-technical users
+    - Basic formatting (bold, italic, lists)
+    - Image insertion
+    - Link creation
+  </Card>
+  
+  <Card title="HTML" icon="code">
+    Raw HTML editor for custom designs
+    
+    - Full HTML control
+    - Custom styling
+    - Advanced layouts
+    - Template variables supported
+  </Card>
+  
+  <Card title="Markdown" icon="markdown">
+    Write in Markdown, rendered to HTML
+    
+    - Simple syntax
+    - Converts to HTML automatically
+    - Good for text-heavy content
+    - Supports template variables
+  </Card>
+  
+  <Card title="Plain Text" icon="file-text">
+    Unformatted text emails
+    
+    - Maximum deliverability
+    - No HTML formatting
+    - Best for transactional emails
+    - Template variables supported
+  </Card>
+  
+  <Card title="Visual" icon="palette">
+    Visual drag-and-drop editor
+    
+    - Block-based editing
+    - Source stored in `body_source`
+    - Rendered HTML in `body`
+    - Template variables supported
+  </Card>
+</CardGroup>
+
+### Converting Content Types
+
+Convert between formats using the API:
+
+```bash
+curl -u 'username:password' -X POST 'http://localhost:9000/api/campaigns/content' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "from": "markdown",
+    "to": "html",
+    "body": "# Hello\n\nThis is **markdown** content"
+  }'
+```
+
+## Campaign Statuses
+
+<Steps>
+  <Step title="Draft">
+    Initial state. Campaign can be edited freely.
+    - Not sending
+    - Can modify all properties
+    - Can be deleted
+    - Can transition to: scheduled, running
+  </Step>
+  
+  <Step title="Scheduled">
+    Campaign set to send at future time (`send_at`).
+    - Waiting for scheduled time
+    - Can be edited or cancelled
+    - Can transition to: running (at send time), paused, cancelled, draft
+  </Step>
+  
+  <Step title="Running">
+    Campaign currently sending.
+    - Actively dispatching emails
+    - Cannot be edited
+    - Progress tracked (`sent` / `to_send`)
+    - Can transition to: paused, cancelled, finished
+  </Step>
+  
+  <Step title="Paused">
+    Temporarily stopped during sending.
+    - Can be resumed (transitions to running)
+    - Can be edited while paused
+    - Retains sending progress
+    - Can transition to: running, cancelled
+  </Step>
+  
+  <Step title="Cancelled">
+    Manually stopped, will not resume.
+    - Permanently stopped
+    - Cannot be restarted
+    - Partial send statistics preserved
+    - Final state
+  </Step>
+  
+  <Step title="Finished">
+    Completed sending successfully.
+    - All messages sent
+    - Full statistics available
+    - Cannot be modified or resent
+    - Final state
+  </Step>
+</Steps>
+
+## Scheduling Campaigns
+
+Schedule campaigns for future delivery:
+
+```json
+{
+  "name": "Weekly Newsletter",
+  "subject": "This Week's Updates",
+  "send_at": "2024-03-15T09:00:00Z",
+  "lists": [1, 2]
+}
+```
+
+<Warning>
+  `send_at` must be in the future. Past timestamps are rejected.
+</Warning>
+
+Scheduled campaigns:
+- Appear in running campaigns list
+- Show countdown until send time
+- Can be edited or cancelled before send time
+- Automatically transition to `running` at scheduled time
+
+## Template Variables
+
+Use template variables in subject and body:
+
+### Subscriber Variables
+
+```html
+<!-- Basic subscriber data -->
+<p>Hello {{ .Subscriber.Name }}!</p>
+<p>Email: {{ .Subscriber.Email }}</p>
+<p>UUID: {{ .Subscriber.UUID }}</p>
+
+<!-- Custom attributes -->
+<p>City: {{ .Subscriber.Attribs.city }}</p>
+<p>Plan: {{ .Subscriber.Attribs.plan }}</p>
+```
+
+### Campaign Variables
+
+```html
+<p>Campaign: {{ .Campaign.Name }}</p>
+<p>From: {{ .Campaign.FromEmail }}</p>
+<p>Sent: {{ .Campaign.SendAt }}</p>
+```
+
+### Tracking Variables
+
+```html
+<!-- Track campaign views -->
+{{ TrackView }}
+
+<!-- Track link clicks -->
+<a href="{{ TrackLink "https://example.com" }}">Click here</a>
+```
+
+### Unsubscribe Variables
+
+```html
+<!-- Unsubscribe URL -->
+<a href="{{ UnsubscribeURL }}">Unsubscribe</a>
+
+<!-- Manage preferences URL -->
+<a href="{{ ManageURL }}">Manage preferences</a>
+
+<!-- Opt-in URL (for opt-in campaigns) -->
+<a href="{{ OptinURL }}">Confirm subscription</a>
+```
+
+### Template Functions
+
+listmonk uses Go templates with [Sprig functions](http://masterminds.github.io/sprig/):
+
+```html
+<!-- Date formatting -->
+{{ .Campaign.SendAt | date "2006-01-02" }}
+
+<!-- String manipulation -->
+{{ .Subscriber.Name | upper }}
+{{ .Subscriber.Email | lower }}
+
+<!-- Conditionals -->
+{{ if eq .Subscriber.Attribs.plan "premium" }}
+  <p>Premium content here</p>
+{{ end }}
+
+<!-- Loops -->
+{{ range .Lists }}
+  <li>{{ .Name }}</li>
+{{ end }}
+```
+
+## Testing Campaigns
+
+Send test emails before launching:
+
+<Steps>
+  <Step title="Prepare Test Recipients">
+    Add subscriber email addresses to test list
+  </Step>
+  
+  <Step title="Send Test">
+    ```bash
+    curl -u 'username:password' -X POST 'http://localhost:9000/api/campaigns/1/test' \
+      -H 'Content-Type: application/json' \
+      -d '{
+        "subject": "Test Subject",
+        "body": "<p>Test content</p>",
+        "subscribers": ["test@example.com"],
+        "content_type": "html",
+        "template_id": 1
+      }'
+    ```
+  </Step>
+  
+  <Step title="Review and Adjust">
+    Check test email rendering, links, and tracking
+  </Step>
+</Steps>
+
+<Note>
+  Test emails use actual subscriber data if the email exists in the database
+</Note>
+
+## Campaign Preview
+
+Preview campaign rendering:
+
+- **Preview in Browser**: Renders campaign with dummy subscriber data
+- **Template Preview**: Shows how content appears in selected template
+- **Archive Preview**: Shows public archive page appearance
+
+Dummy subscriber used for previews:
+
+```json
+{
+  "email": "demo@listmonk.app",
+  "name": "Demo Subscriber",
+  "uuid": "00000000-0000-0000-0000-000000000000",
+  "attribs": {"city": "Bengaluru"}
+}
+```
+
+## Campaign Analytics
+
+### Real-time Statistics
+
+For running campaigns:
+
+- **To Send**: Total recipients
+- **Sent**: Messages delivered
+- **Rate**: Current sending rate (messages/minute)
+- **Net Rate**: Average rate since campaign start
+- **Progress**: Percentage complete
+
+### Post-Campaign Analytics
+
+After campaign completes:
+
+<CardGroup cols={2}>
+  <Card title="Views" icon="eye">
+    Track campaign opens
+    - Total views
+    - Unique views
+    - Views over time
+    - Per-subscriber views
+  </Card>
+  
+  <Card title="Clicks" icon="mouse-pointer">
+    Track link clicks
+    - Total clicks
+    - Unique clicks
+    - Click rate
+    - Top links
+  </Card>
+  
+  <Card title="Bounces" icon="bounce">
+    Monitor delivery failures
+    - Soft bounces
+    - Hard bounces
+    - Complaints
+    - Bounce rate
+  </Card>
+  
+  <Card title="Timeline" icon="chart-line">
+    View engagement over time
+    - Views by date
+    - Clicks by date
+    - Peak engagement times
+  </Card>
+</CardGroup>
+
+### Analytics API
+
+```bash
+# Get view analytics
+curl -u 'username:password' \
+  'http://localhost:9000/api/campaigns/analytics/views?id=1&from=2024-01-01&to=2024-01-31'
+
+# Get link analytics
+curl -u 'username:password' \
+  'http://localhost:9000/api/campaigns/analytics/links?id=1&from=2024-01-01&to=2024-01-31'
+```
+
+## Campaign Archives
+
+Public archive feature for past campaigns:
+
+### Enabling Archives
+
+```json
+{
+  "archive": true,
+  "archive_slug": "january-newsletter",
+  "archive_template_id": 1,
+  "archive_meta": {
+    "featured": true,
+    "category": "newsletter"
+  }
+}
+```
+
+### Archive Settings
+
+- **archive**: Enable/disable public viewing
+- **archive_slug**: Custom URL (auto-generated if empty)
+- **archive_template_id**: Template for archive view
+- **archive_meta**: Additional metadata (JSONB)
+
+<Note>
+  Enable public archives via Settings → App → `enable_public_archive`
+</Note>
+
+Archive URLs: `/archive/{archive_slug}` or `/archive/{campaign_uuid}`
+
+## Custom Headers
+
+Add custom email headers:
+
+```json
+{
+  "headers": [
+    {"X-Campaign-ID": "CAMP-2024-01"},
+    {"X-Mailer": "listmonk"}
+  ]
+}
+```
+
+Common headers:
+- `Reply-To`: Set reply address
+- `X-*`: Custom headers for filtering/tracking
+- `List-ID`: Mailing list identifier
+
+<Warning>
+  List-Unsubscribe headers are added automatically if enabled in privacy settings
+</Warning>
+
+## Messengers
+
+Campaigns can use different sending backends:
+
+- **email**: Default SMTP messenger
+- **email-0**, **email-1**, etc.: Specific SMTP servers
+- Custom messengers (webhooks, SMS, etc.)
+
+Configure in Settings → SMTP or Settings → Messengers
+
+## Media Attachments
+
+Attach media files to campaigns:
+
+```json
+{
+  "media": [1, 2, 3]
+}
+```
+
+Attached media:
+- Embedded in email templates
+- Accessible via template variables
+- Tracked in `campaign_media` table
+
+## Bulk Operations
+
+### Delete Multiple Campaigns
+
+```bash
+# By IDs
+curl -u 'username:password' -X DELETE 'http://localhost:9000/api/campaigns?id=1&id=2&id=3'
+
+# By query
+curl -u 'username:password' -X DELETE 'http://localhost:9000/api/campaigns?query=name%20LIKE%20%27test%25%27'
+```
+
+### Query Campaigns
+
+Filter campaigns by:
+- **Status**: Draft, running, scheduled, etc.
+- **Tags**: Organization tags
+- **Query**: Search by name
+- **Order**: Sort by name, created_at, updated_at
+
+## Performance Settings
+
+Configure sending performance:
+
+- **Concurrency**: Number of concurrent workers (`app.concurrency`)
+- **Message Rate**: Messages per second (`app.message_rate`)
+- **Batch Size**: Subscriber query batch size (`app.batch_size`)
+- **Max Send Errors**: Stop campaign after N errors (`app.max_send_errors`)
+- **Sliding Window**: Advanced rate limiting (`app.message_sliding_window`)
+
+## Database Schema
+
+```sql
+CREATE TABLE campaigns (
+    id               SERIAL PRIMARY KEY,
+    uuid             UUID NOT NULL UNIQUE,
+    name             TEXT NOT NULL,
+    subject          TEXT NOT NULL,
+    from_email       TEXT NOT NULL,
+    body             TEXT NOT NULL,
+    body_source      TEXT NULL,
+    altbody          TEXT NULL,
+    content_type     content_type NOT NULL DEFAULT 'richtext',
+    send_at          TIMESTAMP WITH TIME ZONE,
+    headers          JSONB NOT NULL DEFAULT '[]',
+    attribs          JSONB NOT NULL DEFAULT '{}',
+    status           campaign_status NOT NULL DEFAULT 'draft',
+    tags             VARCHAR(100)[],
+    type             campaign_type DEFAULT 'regular',
+    messenger        TEXT NOT NULL,
+    template_id      INTEGER REFERENCES templates(id),
+    to_send          INT NOT NULL DEFAULT 0,
+    sent             INT NOT NULL DEFAULT 0,
+    archive          BOOLEAN NOT NULL DEFAULT false,
+    archive_slug     TEXT NULL UNIQUE,
+    started_at       TIMESTAMP WITH TIME ZONE,
+    created_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TYPE campaign_status AS ENUM 
+  ('draft', 'running', 'scheduled', 'paused', 'cancelled', 'finished');
+  
+CREATE TYPE campaign_type AS ENUM ('regular', 'optin');
+
+CREATE TYPE content_type AS ENUM 
+  ('richtext', 'html', 'plain', 'markdown', 'visual');
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Test First" icon="flask">
+    Always send test emails before launching to real subscribers
+  </Card>
+  <Card title="Use Templates" icon="file-code">
+    Create reusable templates for consistent branding
+  </Card>
+  <Card title="Monitor Progress" icon="chart-line">
+    Watch running campaigns for errors and performance issues
+  </Card>
+  <Card title="Schedule Wisely" icon="clock">
+    Send during optimal engagement times for your audience
+  </Card>
+  <Card title="Track Engagement" icon="eye">
+    Enable tracking to measure campaign effectiveness
+  </Card>
+  <Card title="Segment Lists" icon="users">
+    Target specific audiences with relevant content
+  </Card>
+</CardGroup>

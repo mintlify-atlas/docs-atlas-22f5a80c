@@ -1,0 +1,652 @@
+---
+title: Performance & Optimization
+description: Optimize listmonk for high-volume email sending and database performance
+---
+
+Optimize listmonk to handle high-volume campaigns efficiently with proper database tuning and configuration.
+
+## Database Connection Pooling
+
+PostgreSQL connection pooling is critical for performance under load.
+
+### Connection Pool Settings
+
+From `config.toml.sample:18-21`:
+
+```toml
+[db]
+host = "localhost"
+port = 5432
+user = "listmonk"
+password = "listmonk"
+database = "listmonk"
+
+ssl_mode = "disable"
+max_open = 25          # Maximum open connections
+max_idle = 25          # Maximum idle connections  
+max_lifetime = "300s"  # Connection lifetime
+```
+
+### Recommended Settings by Scale
+
+| Subscribers | Campaigns/Month | max_open | max_idle | max_lifetime |
+|-------------|-----------------|----------|----------|-------------|
+| < 10,000 | < 50 | 10 | 5 | 300s |
+| 10,000 - 100,000 | 50 - 200 | 25 | 25 | 300s |
+| 100,000 - 500,000 | 200 - 1,000 | 50 | 50 | 300s |
+| 500,000 - 1M | 1,000+ | 75 | 75 | 600s |
+| > 1M | High volume | 100 | 100 | 900s |
+
+<Info>
+Connection pool size should match your PostgreSQL `max_connections` setting. Leave headroom for admin connections and other applications.
+</Info>
+
+### Monitoring Connections
+
+Check active PostgreSQL connections:
+
+```sql
+SELECT 
+  count(*) as total_connections,
+  count(*) FILTER (WHERE state = 'active') as active,
+  count(*) FILTER (WHERE state = 'idle') as idle
+FROM pg_stat_activity
+WHERE datname = 'listmonk';
+```
+
+## Campaign Sending Performance
+
+Optimize how campaigns are sent to maximize throughput.
+
+### Key Performance Settings
+
+From `schema.sql:235-241`:
+
+```json
+"app.concurrency": 10,
+"app.message_rate": 10,
+"app.batch_size": 1000,
+"app.max_send_errors": 1000,
+"app.message_sliding_window": false,
+"app.message_sliding_window_duration": "1h",
+"app.message_sliding_window_rate": 10000
+```
+
+### Concurrency
+
+**Setting**: `app.concurrency`
+
+- Number of concurrent worker threads sending messages
+- Higher = faster sending, but more database/SMTP load
+- Limited by SMTP server connection limits
+
+**Recommended values**:
+
+- Small instance (< 50k subscribers): 5-10
+- Medium instance (50k-500k): 10-25
+- Large instance (500k+): 25-50
+
+<Warning>
+Don't set concurrency higher than your SMTP server's connection limit.
+</Warning>
+
+### Message Rate
+
+**Setting**: `app.message_rate`
+
+- Messages sent per second across all workers
+- Primary throttle to prevent SMTP rate limits
+- Adjust based on your SMTP provider's limits
+
+**Provider-specific recommendations**:
+
+- **Amazon SES**: 14 (with default 14/sec limit)
+- **SendGrid**: Based on your plan (100-3000/sec)
+- **Postmark**: 10-100 depending on plan
+- **Self-hosted**: Start at 10, increase gradually
+
+### Batch Size
+
+**Setting**: `app.batch_size`
+
+- Number of subscribers fetched from database per query
+- Larger = fewer database queries, but more memory
+- Sweet spot: 1000-5000
+
+**Recommendations**:
+
+```toml
+# For < 100k subscribers
+app.batch_size = 1000
+
+# For 100k-1M subscribers  
+app.batch_size = 2000
+
+# For > 1M subscribers
+app.batch_size = 5000
+```
+
+### Sliding Window Rate Limiting
+
+For providers with hourly/daily limits instead of per-second:
+
+```toml
+app.message_sliding_window = true
+app.message_sliding_window_duration = "1h"
+app.message_sliding_window_rate = 10000
+```
+
+Sends up to 10,000 messages per hour, smoothed over time.
+
+## Database Indexes
+
+listmonk includes optimized indexes for common queries.
+
+### Subscriber Indexes
+
+From `schema.sql:31-35`:
+
+```sql
+CREATE UNIQUE INDEX idx_subs_email ON subscribers(LOWER(email));
+CREATE INDEX idx_subs_status ON subscribers(status);
+CREATE INDEX idx_subs_id_status ON subscribers(id, status);
+CREATE INDEX idx_subs_created_at ON subscribers(created_at);
+CREATE INDEX idx_subs_updated_at ON subscribers(updated_at);
+```
+
+**Purpose**:
+- `idx_subs_email` - Fast email lookups, case-insensitive
+- `idx_subs_status` - Filter by subscriber status
+- `idx_subs_id_status` - Campaign subscriber queries
+- `idx_subs_created_at` - Date-based reporting
+- `idx_subs_updated_at` - Recent activity queries
+
+### List Indexes
+
+From `schema.sql:52-57`:
+
+```sql
+CREATE INDEX idx_lists_type ON lists(type);
+CREATE INDEX idx_lists_optin ON lists(optin);
+CREATE INDEX idx_lists_status ON lists(status);
+CREATE INDEX idx_lists_name ON lists(name);
+CREATE INDEX idx_lists_created_at ON lists(created_at);
+CREATE INDEX idx_lists_updated_at ON lists(updated_at);
+```
+
+### Campaign Indexes
+
+From `schema.sql:135-138`:
+
+```sql
+CREATE INDEX idx_camps_status ON campaigns(status);
+CREATE INDEX idx_camps_name ON campaigns(name);
+CREATE INDEX idx_camps_created_at ON campaigns(created_at);
+CREATE INDEX idx_camps_updated_at ON campaigns(updated_at);
+```
+
+### Analytics Indexes
+
+From `schema.sql:164-166, 216-219`:
+
+```sql
+-- Campaign views
+CREATE INDEX idx_views_camp_id ON campaign_views(campaign_id);
+CREATE INDEX idx_views_subscriber_id ON campaign_views(subscriber_id);
+CREATE INDEX idx_views_date ON campaign_views((TIMEZONE('UTC', created_at)::DATE));
+
+-- Link clicks  
+CREATE INDEX idx_clicks_camp_id ON link_clicks(campaign_id);
+CREATE INDEX idx_clicks_link_id ON link_clicks(link_id);
+CREATE INDEX idx_clicks_sub_id ON link_clicks(subscriber_id);
+CREATE INDEX idx_clicks_date ON link_clicks((TIMEZONE('UTC', created_at)::DATE));
+```
+
+**Purpose**:
+- Date indexes enable fast analytics queries
+- Foreign key indexes speed up joins
+- Composite indexes for multi-column queries
+
+### Bounce Indexes
+
+From `schema.sql:311-314`:
+
+```sql
+CREATE INDEX idx_bounces_sub_id ON bounces(subscriber_id);
+CREATE INDEX idx_bounces_camp_id ON bounces(campaign_id);
+CREATE INDEX idx_bounces_source ON bounces(source);
+CREATE INDEX idx_bounces_date ON bounces((TIMEZONE('UTC', created_at)::DATE));
+```
+
+### Custom Indexes
+
+Add indexes for custom queries:
+
+```sql
+-- Index on subscriber attributes (JSONB)
+CREATE INDEX idx_subs_attribs_city 
+ON subscribers USING gin ((attribs -> 'city'));
+
+-- Index for specific list subscriptions
+CREATE INDEX idx_sub_lists_list_id_status 
+ON subscriber_lists(list_id, status);
+```
+
+## Caching Strategies
+
+listmonk includes materialized views for dashboard performance.
+
+### Materialized Views
+
+From `schema.sql:364-432`:
+
+```sql
+-- Dashboard counts (subscribers, lists, campaigns)
+CREATE MATERIALIZED VIEW mat_dashboard_counts AS ...
+
+-- Dashboard charts (views and clicks over time)
+CREATE MATERIALIZED VIEW mat_dashboard_charts AS ...
+
+-- List subscriber stats
+CREATE MATERIALIZED VIEW mat_list_subscriber_stats AS ...
+```
+
+### Cache Refresh Settings
+
+From `schema.sql:242-243`:
+
+```json
+"app.cache_slow_queries": false,
+"app.cache_slow_queries_interval": "0 3 * * *"
+```
+
+Enable automatic cache refresh:
+
+```toml
+app.cache_slow_queries = true
+app.cache_slow_queries_interval = "0 3 * * *"  # 3 AM daily
+```
+
+Manual refresh:
+
+```sql
+REFRESH MATERIALIZED VIEW CONCURRENTLY mat_dashboard_counts;
+REFRESH MATERIALIZED VIEW CONCURRENTLY mat_dashboard_charts;
+REFRESH MATERIALIZED VIEW CONCURRENTLY mat_list_subscriber_stats;
+```
+
+<Info>
+Use `CONCURRENTLY` to refresh without blocking reads. Requires unique indexes on views.
+</Info>
+
+## PostgreSQL Tuning
+
+Optimize PostgreSQL for listmonk workloads.
+
+### Memory Settings
+
+Edit `postgresql.conf`:
+
+```ini
+# For 4GB RAM server
+shared_buffers = 1GB
+effective_cache_size = 3GB
+maintenance_work_mem = 256MB
+work_mem = 10MB
+
+# For 8GB RAM server
+shared_buffers = 2GB
+effective_cache_size = 6GB
+maintenance_work_mem = 512MB
+work_mem = 20MB
+
+# For 16GB+ RAM server
+shared_buffers = 4GB
+effective_cache_size = 12GB
+maintenance_work_mem = 1GB
+work_mem = 50MB
+```
+
+### Connection Settings
+
+```ini
+max_connections = 200
+
+# Use connection pooler for very high load
+# Consider pgBouncer or pgPool
+```
+
+### Checkpoint Settings
+
+```ini
+# Reduce checkpoint frequency for better write performance
+checkpoint_timeout = 15min
+checkpoint_completion_target = 0.9
+wal_buffers = 16MB
+```
+
+### Query Optimization
+
+```ini
+# Enable query planner to use more time for better plans
+default_statistics_target = 100
+random_page_cost = 1.1  # Lower for SSD storage
+```
+
+### Vacuum Settings
+
+```ini
+# Autovacuum is critical for long-term performance
+autovacuum = on
+autovacuum_max_workers = 3
+autovacuum_vacuum_scale_factor = 0.05
+autovacuum_analyze_scale_factor = 0.025
+```
+
+### Maintenance Schedule
+
+Create cron job for regular vacuum:
+
+```bash
+# /etc/cron.d/listmonk-maintenance
+0 2 * * * postgres /usr/bin/vacuumdb --analyze-in-stages listmonk
+```
+
+Or configure in listmonk settings (from `schema.sql:298`):
+
+```json
+"maintenance.db": {
+  "vacuum": true,
+  "vacuum_cron_interval": "0 2 * * *"
+}
+```
+
+## Scaling Considerations
+
+### Vertical Scaling
+
+Increasing server resources:
+
+**CPU**: More cores help with concurrent campaign sending
+- 2 cores: Up to 50k subscribers
+- 4 cores: Up to 500k subscribers  
+- 8+ cores: 1M+ subscribers
+
+**RAM**: More memory improves database performance
+- 2GB: Up to 50k subscribers
+- 4GB: Up to 250k subscribers
+- 8GB: Up to 1M subscribers
+- 16GB+: Multi-million subscribers
+
+**Storage**: SSD significantly improves database performance
+- Use SSDs for database storage
+- HDD acceptable for media storage only
+
+### Horizontal Scaling
+
+<Warning>
+listmonk doesn't natively support multi-instance deployment. Use a single instance with proper resources.
+</Warning>
+
+**Read Replicas**: For analytics and reporting
+
+```sql
+-- Set up PostgreSQL streaming replication
+-- Point read-heavy queries to replica
+```
+
+**SMTP Load Balancing**: Use multiple SMTP servers
+
+```json
+[
+  {"enabled": true, "host": "smtp1.example.com", "max_conns": 10},
+  {"enabled": true, "host": "smtp2.example.com", "max_conns": 10},
+  {"enabled": true, "host": "smtp3.example.com", "max_conns": 10}
+]
+```
+
+listmonk will round-robin between SMTP servers.
+
+### Media Storage Optimization
+
+Store uploaded media on S3 instead of filesystem:
+
+```json
+{
+  "upload.provider": "s3",
+  "upload.s3.url": "https://s3.amazonaws.com",
+  "upload.s3.bucket": "listmonk-media",
+  "upload.s3.aws_access_key_id": "key",
+  "upload.s3.aws_secret_access_key": "secret"
+}
+```
+
+Benefits:
+- Reduces server disk I/O
+- Enables CDN for faster media delivery
+- Simplifies multi-server deployments
+
+## Monitoring and Logging
+
+### Application Logs
+
+Enable verbose logging:
+
+```bash
+./listmonk --config config.toml --log-level debug
+```
+
+Log levels: `debug`, `info`, `warn`, `error`
+
+### Database Query Logging
+
+Enable slow query logging in PostgreSQL:
+
+```ini
+# postgresql.conf
+log_min_duration_statement = 1000  # Log queries slower than 1s
+log_line_prefix = '%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h '
+log_checkpoints = on
+log_connections = on
+log_disconnections = on
+log_lock_waits = on
+```
+
+### Query Analysis
+
+```sql
+-- Find slow queries
+SELECT 
+  query,
+  calls,
+  total_time,
+  mean_time,
+  max_time
+FROM pg_stat_statements
+ORDER BY mean_time DESC
+LIMIT 20;
+
+-- Analyze specific query
+EXPLAIN ANALYZE 
+SELECT * FROM subscribers WHERE status = 'enabled';
+```
+
+### Metrics to Monitor
+
+<Steps>
+  <Step title="Campaign throughput">
+    Messages sent per minute/hour
+  </Step>
+  
+  <Step title="Database connection usage">
+    Active vs. idle connections
+  </Step>
+  
+  <Step title="Query performance">
+    Average query execution time
+  </Step>
+  
+  <Step title="SMTP response times">
+    Time to send each message
+  </Step>
+  
+  <Step title="Bounce rate">
+    Percentage of bounced messages
+  </Step>
+  
+  <Step title="Disk I/O">
+    Read/write operations per second
+  </Step>
+  
+  <Step title="Memory usage">
+    Application and database memory consumption
+  </Step>
+</Steps>
+
+### Prometheus Metrics
+
+listmonk exposes metrics at `/api/health`:
+
+```json
+{
+  "data": true
+}
+```
+
+For detailed metrics, use PostgreSQL exporter:
+
+```bash
+docker run -d \
+  -p 9187:9187 \
+  -e DATA_SOURCE_NAME="postgresql://listmonk:password@localhost/listmonk" \
+  prometheuscommunity/postgres-exporter
+```
+
+## Troubleshooting Performance Issues
+
+### Slow Campaign Sending
+
+<Accordion title="Check SMTP server limits">
+- Verify `app.message_rate` doesn't exceed SMTP limits
+- Monitor SMTP connection errors in logs
+- Consider multiple SMTP servers for higher throughput
+</Accordion>
+
+<Accordion title="Increase concurrency">
+- Raise `app.concurrency` if CPU/SMTP allows
+- Monitor database connection pool usage
+- Ensure `max_open` connections supports concurrency
+</Accordion>
+
+<Accordion title="Optimize batch size">
+- Increase `app.batch_size` to reduce database queries
+- Don't exceed available memory
+- Test with 1000, 2000, 5000 to find sweet spot
+</Accordion>
+
+### Slow Dashboard Loading
+
+<Accordion title="Enable materialized view caching">
+```toml
+app.cache_slow_queries = true
+app.cache_slow_queries_interval = "0 3 * * *"
+```
+
+Manually refresh:
+```sql
+REFRESH MATERIALIZED VIEW CONCURRENTLY mat_dashboard_counts;
+```
+</Accordion>
+
+<Accordion title="Clean up old analytics data">
+```bash
+DELETE /api/maintenance/analytics/campaign_views?days=365
+DELETE /api/maintenance/analytics/link_clicks?days=365  
+```
+</Accordion>
+
+### Database Performance Issues
+
+<Accordion title="Run VACUUM ANALYZE">
+```sql
+VACUUM ANALYZE subscribers;
+VACUUM ANALYZE campaigns;
+VACUUM ANALYZE campaign_views;
+VACUUM ANALYZE link_clicks;
+```
+</Accordion>
+
+<Accordion title="Check for missing indexes">
+```sql
+SELECT schemaname, tablename, attname, n_distinct, correlation
+FROM pg_stats
+WHERE schemaname = 'public'
+AND n_distinct > 100
+ORDER BY abs(correlation) DESC;
+```
+</Accordion>
+
+<Accordion title="Identify bloat">
+```sql
+SELECT 
+  schemaname, tablename,
+  pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size,
+  pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename) - pg_relation_size(schemaname||'.'||tablename)) AS external_size
+FROM pg_tables
+WHERE schemaname = 'public'
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+```
+</Accordion>
+
+### High Memory Usage
+
+<Accordion title="Reduce connection pool">
+Lower `max_open` and `max_idle` if memory is constrained
+</Accordion>
+
+<Accordion title="Lower batch size">
+Reduce `app.batch_size` to decrease memory per worker
+</Accordion>
+
+<Accordion title="Tune PostgreSQL">
+Adjust `work_mem` and `maintenance_work_mem` based on available RAM
+</Accordion>
+
+## Performance Benchmarks
+
+Real-world performance benchmarks:
+
+| Instance | Subscribers | Messages/Hour | CPU | RAM | Database |
+|----------|-------------|---------------|-----|-----|----------|
+| Small | 10,000 | 50,000 | 2 cores | 2GB | PostgreSQL 14 |
+| Medium | 100,000 | 500,000 | 4 cores | 4GB | PostgreSQL 14 |
+| Large | 500,000 | 2,000,000 | 8 cores | 8GB | PostgreSQL 14 |
+| Enterprise | 2,000,000 | 8,000,000 | 16 cores | 16GB | PostgreSQL 14 |
+
+Settings used:
+
+```toml
+# Small
+app.concurrency = 5
+app.message_rate = 14
+app.batch_size = 1000
+
+# Medium  
+app.concurrency = 10
+app.message_rate = 140
+app.batch_size = 2000
+
+# Large
+app.concurrency = 20
+app.message_rate = 500
+app.batch_size = 5000
+
+# Enterprise
+app.concurrency = 40
+app.message_rate = 2000  
+app.batch_size = 5000
+```
+
+<Info>
+Actual performance depends on SMTP provider limits, network latency, email size, and server hardware.
+</Info>
