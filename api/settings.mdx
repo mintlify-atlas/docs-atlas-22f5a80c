@@ -1,0 +1,558 @@
+---
+title: "Settings & Dashboard"
+description: "System settings and dashboard data APIs"
+---
+
+## Settings API
+
+Manage listmonk configuration settings programmatically.
+
+### Get All Settings
+
+Retrieve all system settings.
+
+```bash
+GET /api/settings
+```
+
+```bash cURL
+curl -u 'username:password' http://localhost:9000/api/settings
+```
+
+**Response**:
+```json
+{
+  "data": {
+    "app.site_name": "Listmonk",
+    "app.root_url": "http://localhost:9000",
+    "app.from_email": "noreply@example.com",
+    "app.notify_emails": ["admin@example.com"],
+    "app.lang": "en",
+    "app.batch_size": 1000,
+    "app.concurrency": 10,
+    "app.message_rate": 10,
+    "privacy.individual_tracking": true,
+    "privacy.unsubscribe_header": true,
+    "upload.provider": "filesystem",
+    "upload.filesystem.upload_path": "uploads",
+    "smtp": [
+      {
+        "enabled": true,
+        "host": "smtp.example.com",
+        "port": 587,
+        "auth_protocol": "login",
+        "username": "user@example.com",
+        "tls_enabled": true,
+        "max_conns": 10
+      }
+    ]
+  }
+}
+```
+
+**Required Permission**: `settings:get`
+
+### Update Settings
+
+Update one or more system settings.
+
+```bash
+PUT /api/settings
+```
+
+<ParamField body="settings" type="object" required>
+  Object containing setting key-value pairs to update
+</ParamField>
+
+**Example Request**:
+```bash
+curl -u 'admin:password' -X PUT http://localhost:9000/api/settings \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "app.site_name": "My Newsletter",
+    "app.from_email": "newsletter@example.com",
+    "app.batch_size": 2000,
+    "privacy.individual_tracking": false
+  }'
+```
+
+**Required Permission**: `settings:manage`
+
+<Warning>
+Changing certain settings (like SMTP configuration or app address) may require restarting the listmonk service for changes to take effect.
+</Warning>
+
+### Update Single Setting
+
+Update a specific setting by key.
+
+```bash
+PUT /api/settings/:key
+```
+
+<ParamField path="key" type="string" required>
+  Setting key (e.g., `app.site_name`, `privacy.individual_tracking`)
+</ParamField>
+
+<ParamField body="value" type="any" required>
+  New value for the setting
+</ParamField>
+
+**Example Request**:
+```bash
+curl -u 'admin:password' -X PUT http://localhost:9000/api/settings/app.site_name \
+  -H 'Content-Type: application/json' \
+  -d '{"value": "My Newsletter Platform"}'
+```
+
+**Required Permission**: `settings:manage`
+
+### Test SMTP Settings
+
+Test SMTP server connection and send a test email.
+
+```bash
+POST /api/settings/smtp/test
+```
+
+<ParamField body="email" type="string" required>
+  Email address to send test message to
+</ParamField>
+
+<ParamField body="smtp" type="object">
+  Optional SMTP configuration to test (if not provided, uses current settings)
+</ParamField>
+
+**Example Request**:
+```bash
+curl -u 'admin:password' -X POST http://localhost:9000/api/settings/smtp/test \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "email": "test@example.com",
+    "smtp": {
+      "host": "smtp.gmail.com",
+      "port": 587,
+      "auth_protocol": "login",
+      "username": "your-email@gmail.com",
+      "password": "your-app-password",
+      "tls_enabled": true
+    }
+  }'
+```
+
+**Response**:
+```json
+{
+  "data": {
+    "success": true,
+    "message": "Test email sent successfully"
+  }
+}
+```
+
+**Required Permission**: `settings:manage`
+
+<Info>
+This is useful for validating SMTP credentials before saving them to your configuration.
+</Info>
+
+## Dashboard API
+
+Retrieve dashboard statistics and visualizations.
+
+### Get Dashboard Counts
+
+Get summary counts for dashboard widgets.
+
+```bash
+GET /api/dashboard/counts
+```
+
+```bash cURL
+curl -u 'username:password' http://localhost:9000/api/dashboard/counts
+```
+
+**Response**:
+```json
+{
+  "data": {
+    "subscribers": {
+      "total": 15234,
+      "enabled": 14890,
+      "disabled": 200,
+      "blocklisted": 144
+    },
+    "lists": {
+      "total": 12,
+      "public": 8,
+      "private": 3,
+      "temporary": 1
+    },
+    "campaigns": {
+      "total": 156,
+      "draft": 3,
+      "running": 1,
+      "scheduled": 2,
+      "paused": 0,
+      "cancelled": 5,
+      "finished": 145
+    },
+    "messages": {
+      "sent": 1234567,
+      "views": 456789,
+      "clicks": 123456,
+      "bounces": 5678
+    }
+  }
+}
+```
+
+<ResponseField name="subscribers.total" type="integer">
+  Total number of subscribers
+</ResponseField>
+
+<ResponseField name="subscribers.enabled" type="integer">
+  Number of enabled subscribers
+</ResponseField>
+
+<ResponseField name="subscribers.disabled" type="integer">
+  Number of disabled subscribers
+</ResponseField>
+
+<ResponseField name="subscribers.blocklisted" type="integer">
+  Number of blocklisted subscribers
+</ResponseField>
+
+<ResponseField name="lists.total" type="integer">
+  Total number of lists
+</ResponseField>
+
+<ResponseField name="campaigns.total" type="integer">
+  Total number of campaigns
+</ResponseField>
+
+<ResponseField name="messages.sent" type="integer">
+  Total messages sent across all campaigns
+</ResponseField>
+
+<ResponseField name="messages.views" type="integer">
+  Total campaign views (opens)
+</ResponseField>
+
+<ResponseField name="messages.clicks" type="integer">
+  Total link clicks
+</ResponseField>
+
+<ResponseField name="messages.bounces" type="integer">
+  Total bounced emails
+</ResponseField>
+
+### Get Dashboard Charts
+
+Get time-series data for dashboard charts.
+
+```bash
+GET /api/dashboard/charts
+```
+
+```bash cURL
+curl -u 'username:password' http://localhost:9000/api/dashboard/charts
+```
+
+**Response**:
+```json
+{
+  "data": {
+    "campaign_views": [
+      {"date": "2024-01-01", "count": 1234},
+      {"date": "2024-01-02", "count": 1456},
+      {"date": "2024-01-03", "count": 1389}
+    ],
+    "link_clicks": [
+      {"date": "2024-01-01", "count": 567},
+      {"date": "2024-01-02", "count": 623},
+      {"date": "2024-01-03", "count": 589}
+    ],
+    "subscriber_growth": [
+      {"date": "2024-01-01", "count": 14500},
+      {"date": "2024-01-02", "count": 14623},
+      {"date": "2024-01-03", "count": 14890}
+    ]
+  }
+}
+```
+
+<ResponseField name="campaign_views" type="array">
+  Daily campaign view (open) counts
+</ResponseField>
+
+<ResponseField name="link_clicks" type="array">
+  Daily link click counts
+</ResponseField>
+
+<ResponseField name="subscriber_growth" type="array">
+  Daily subscriber count over time
+</ResponseField>
+
+## Admin Operations
+
+### Reload Application
+
+Reload the application configuration without restarting the server.
+
+```bash
+POST /api/admin/reload
+```
+
+```bash cURL
+curl -u 'admin:password' -X POST http://localhost:9000/api/admin/reload
+```
+
+**Response**:
+```json
+{
+  "data": {
+    "success": true,
+    "message": "Application reloaded successfully"
+  }
+}
+```
+
+**Required Permission**: `settings:manage`
+
+<Note>
+This sends a SIGHUP signal to reload configuration. Useful after updating `config.toml` or environment variables.
+</Note>
+
+### Get Logs
+
+Retrieve application logs.
+
+```bash
+GET /api/logs
+```
+
+**Query Parameters**:
+- `type` - Log type filter (optional)
+- `lines` - Number of log lines to retrieve (default: 100)
+
+```bash cURL
+curl -u 'admin:password' 'http://localhost:9000/api/logs?lines=200'
+```
+
+**Response**:
+```json
+{
+  "data": [
+    "2024-01-15 10:30:45 [INFO] Campaign started: id=123",
+    "2024-01-15 10:30:46 [INFO] Sending to 1000 subscribers",
+    "2024-01-15 10:31:00 [INFO] Campaign completed: id=123"
+  ]
+}
+```
+
+**Required Permission**: `settings:get`
+
+### Event Stream
+
+Get real-time server-sent events for system activity.
+
+```bash
+GET /api/events
+```
+
+```bash cURL
+curl -u 'admin:password' http://localhost:9000/api/events
+```
+
+**Required Permission**: `settings:get`
+
+<Info>
+This endpoint returns a server-sent event (SSE) stream for real-time updates on campaign progress, errors, and system events.
+</Info>
+
+## System Information
+
+### Health Check
+
+Check if the API is responding.
+
+```bash
+GET /api/health
+```
+
+```bash cURL
+curl http://localhost:9000/api/health
+```
+
+**Response**:
+```json
+{
+  "data": true
+}
+```
+
+<Note>
+This endpoint does not require authentication and can be used for monitoring and health checks.
+</Note>
+
+### About Information
+
+Get version and build information.
+
+```bash
+GET /api/about
+```
+
+```bash cURL
+curl -u 'username:password' http://localhost:9000/api/about
+```
+
+**Response**:
+```json
+{
+  "data": {
+    "version": "v3.0.0",
+    "build": "2024-01-15",
+    "update": {
+      "version": "v3.1.0",
+      "url": "https://github.com/knadh/listmonk/releases/tag/v3.1.0"
+    }
+  }
+}
+```
+
+<ResponseField name="version" type="string">
+  Current listmonk version
+</ResponseField>
+
+<ResponseField name="build" type="string">
+  Build date
+</ResponseField>
+
+<ResponseField name="update" type="object">
+  Available update information (if newer version exists)
+</ResponseField>
+
+## Server Configuration
+
+### Get Server Config
+
+Get public server configuration.
+
+```bash
+GET /api/config
+```
+
+```bash cURL
+curl http://localhost:9000/api/config
+```
+
+**Response**:
+```json
+{
+  "data": {
+    "site_name": "Listmonk",
+    "root_url": "http://localhost:9000",
+    "enable_public_subscription_page": true,
+    "enable_public_archive": false,
+    "has_legacy_user": false,
+    "needs_restart": false,
+    "update": null,
+    "lang": "en",
+    "security": {
+      "oidc": {
+        "enabled": false,
+        "provider_name": ""
+      },
+      "captcha": {
+        "altcha": {
+          "enabled": false
+        },
+        "hcaptcha": {
+          "enabled": false,
+          "key": ""
+        }
+      }
+    }
+  }
+}
+```
+
+<Note>
+This endpoint is public and does not require authentication. It's used by the frontend to configure itself.
+</Note>
+
+## Maintenance Operations
+
+### Clean Subscriber Data
+
+Remove orphaned subscriber data.
+
+```bash
+DELETE /api/maintenance/subscribers/:type
+```
+
+**Parameters**:
+- `:type` - Type of cleanup: `orphan_subscribers` or `unconfirmed_subscribers`
+
+```bash cURL
+curl -u 'admin:password' -X DELETE \
+  http://localhost:9000/api/maintenance/subscribers/orphan_subscribers
+```
+
+**Required Permission**: `settings:maintain`
+
+### Clean Analytics Data
+
+Remove old campaign analytics data.
+
+```bash
+DELETE /api/maintenance/analytics/:type
+```
+
+**Parameters**:
+- `:type` - Type of cleanup: `campaign_views` or `link_clicks`
+
+```bash cURL
+curl -u 'admin:password' -X DELETE \
+  http://localhost:9000/api/maintenance/analytics/campaign_views
+```
+
+**Required Permission**: `settings:maintain`
+
+### Clean Unconfirmed Subscriptions
+
+Remove subscriptions that haven't been confirmed within a specified timeframe.
+
+```bash
+DELETE /api/maintenance/subscriptions/unconfirmed
+```
+
+**Query Parameters**:
+- `before_days` - Remove subscriptions older than this many days (default: 30)
+
+```bash cURL
+curl -u 'admin:password' -X DELETE \
+  'http://localhost:9000/api/maintenance/subscriptions/unconfirmed?before_days=60'
+```
+
+**Required Permission**: `settings:maintain`
+
+## Best Practices
+
+<Accordion title="Monitor Dashboard Metrics">
+  Regularly check dashboard counts and charts to monitor your email marketing performance. Set up automated scripts to track trends over time.
+</Accordion>
+
+<Accordion title="Test SMTP Before Saving">
+  Always use the SMTP test endpoint before saving new email provider credentials to avoid sending failures.
+</Accordion>
+
+<Accordion title="Schedule Maintenance">
+  Run maintenance operations during low-traffic periods to clean up orphaned data and optimize database performance.
+</Accordion>
+
+<Accordion title="Version Monitoring">
+  Check the `/api/about` endpoint regularly to stay informed about available updates.
+</Accordion>

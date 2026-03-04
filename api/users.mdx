@@ -1,0 +1,649 @@
+---
+title: "Users & Roles"
+description: "Manage users and role-based permissions"
+---
+
+## Users API
+
+Manage user accounts and permissions through the users API.
+
+### Get All Users
+
+Retrieve a list of all users in the system.
+
+<CodeGroup>
+```bash cURL
+curl -u 'username:password' http://localhost:9000/api/users
+```
+
+```python Python
+import requests
+from requests.auth import HTTPBasicAuth
+
+response = requests.get(
+    'http://localhost:9000/api/users',
+    auth=HTTPBasicAuth('username', 'password')
+)
+print(response.json())
+```
+</CodeGroup>
+
+**Response**:
+```json
+{
+  "data": {
+    "results": [
+      {
+        "id": 1,
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+        "email": "admin@example.com",
+        "name": "Admin User",
+        "type": "user",
+        "status": "enabled",
+        "role": {
+          "id": 1,
+          "name": "Super Admin",
+          "permissions": ["*"]
+        }
+      }
+    ],
+    "total": 1,
+    "per_page": 20,
+    "page": 1
+  }
+}
+```
+
+<ResponseField name="id" type="integer">
+  Unique user ID
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  User email address (used for login)
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Display name
+</ResponseField>
+
+<ResponseField name="type" type="string">
+  User type: `user` (regular user with 2FA support) or `api` (API-only user without 2FA)
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Account status: `enabled` or `disabled`
+</ResponseField>
+
+<ResponseField name="role" type="object">
+  Assigned role with permissions
+</ResponseField>
+
+### Get Single User
+
+Retrieve details for a specific user.
+
+```bash
+GET /api/users/:id
+```
+
+```bash cURL
+curl -u 'username:password' http://localhost:9000/api/users/1
+```
+
+**Required Permission**: `users:get`
+
+### Create User
+
+Create a new user account.
+
+```bash
+POST /api/users
+```
+
+<ParamField body="email" type="string" required>
+  User email address
+</ParamField>
+
+<ParamField body="name" type="string" required>
+  Display name
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User password (minimum 8 characters recommended)
+</ParamField>
+
+<ParamField body="type" type="string" default="user">
+  User type: `user` or `api`
+</ParamField>
+
+<ParamField body="status" type="string" default="enabled">
+  Account status: `enabled` or `disabled`
+</ParamField>
+
+<ParamField body="role_id" type="integer" required>
+  ID of the role to assign to this user
+</ParamField>
+
+**Example Request**:
+```bash
+curl -u 'admin:password' -X POST http://localhost:9000/api/users \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "email": "newuser@example.com",
+    "name": "New User",
+    "password": "secure-password",
+    "type": "user",
+    "status": "enabled",
+    "role_id": 2
+  }'
+```
+
+**Required Permission**: `users:manage`
+
+### Update User
+
+Update an existing user's details.
+
+```bash
+PUT /api/users/:id
+```
+
+<ParamField body="email" type="string">
+  User email address
+</ParamField>
+
+<ParamField body="name" type="string">
+  Display name
+</ParamField>
+
+<ParamField body="password" type="string">
+  New password (optional, only provide if changing)
+</ParamField>
+
+<ParamField body="type" type="string">
+  User type: `user` or `api`
+</ParamField>
+
+<ParamField body="status" type="string">
+  Account status: `enabled` or `disabled`
+</ParamField>
+
+<ParamField body="role_id" type="integer">
+  Role ID to assign
+</ParamField>
+
+**Example Request**:
+```bash
+curl -u 'admin:password' -X PUT http://localhost:9000/api/users/2 \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Updated Name",
+    "status": "enabled",
+    "role_id": 3
+  }'
+```
+
+**Required Permission**: `users:manage`
+
+### Delete User
+
+Delete a user account.
+
+```bash
+DELETE /api/users/:id
+```
+
+```bash cURL
+curl -u 'admin:password' -X DELETE http://localhost:9000/api/users/5
+```
+
+**Required Permission**: `users:manage`
+
+<Warning>
+Deleting a user is permanent and cannot be undone. Ensure you have backups if needed.
+</Warning>
+
+### Bulk Delete Users
+
+Delete multiple users by ID.
+
+```bash
+DELETE /api/users?id=1&id=2&id=3
+```
+
+```bash cURL
+curl -u 'admin:password' -X DELETE 'http://localhost:9000/api/users?id=5&id=6'
+```
+
+**Required Permission**: `users:manage`
+
+## User Profile
+
+### Get Current User Profile
+
+Get the authenticated user's profile information.
+
+```bash
+GET /api/profile
+```
+
+```bash cURL
+curl -u 'username:password' http://localhost:9000/api/profile
+```
+
+**Response**:
+```json
+{
+  "data": {
+    "id": 1,
+    "email": "user@example.com",
+    "name": "User Name",
+    "type": "user",
+    "status": "enabled",
+    "role": {
+      "id": 1,
+      "name": "Admin",
+      "permissions": ["*"]
+    }
+  }
+}
+```
+
+### Update Current User Profile
+
+Update the authenticated user's own profile.
+
+```bash
+PUT /api/profile
+```
+
+<ParamField body="name" type="string">
+  Display name
+</ParamField>
+
+<ParamField body="password" type="string">
+  New password
+</ParamField>
+
+<ParamField body="current_password" type="string">
+  Current password (required when changing password)
+</ParamField>
+
+**Example Request**:
+```bash
+curl -u 'username:password' -X PUT http://localhost:9000/api/profile \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Updated Name",
+    "password": "new-secure-password",
+    "current_password": "old-password"
+  }'
+```
+
+## Two-Factor Authentication (2FA)
+
+### Generate TOTP QR Code
+
+Generate a QR code for setting up TOTP 2FA.
+
+```bash
+GET /api/users/:id/twofa/totp
+```
+
+```bash cURL
+curl -u 'username:password' http://localhost:9000/api/users/1/twofa/totp
+```
+
+**Response**:
+```json
+{
+  "data": {
+    "secret": "BASE32_ENCODED_SECRET",
+    "url": "otpauth://totp/listmonk:user@example.com?secret=..."
+  }
+}
+```
+
+The `url` can be encoded as a QR code for scanning with authenticator apps.
+
+### Enable TOTP 2FA
+
+Enable TOTP 2FA for a user account.
+
+```bash
+PUT /api/users/:id/twofa
+```
+
+<ParamField body="secret" type="string" required>
+  The TOTP secret from the QR code generation step
+</ParamField>
+
+<ParamField body="token" type="string" required>
+  6-digit verification code from the authenticator app
+</ParamField>
+
+**Example Request**:
+```bash
+curl -u 'username:password' -X PUT http://localhost:9000/api/users/1/twofa \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "secret": "BASE32_ENCODED_SECRET",
+    "token": "123456"
+  }'
+```
+
+<Note>
+2FA is only available for regular users (type: `user`). API users (type: `api`) cannot enable 2FA.
+</Note>
+
+### Disable TOTP 2FA
+
+Disable TOTP 2FA for a user account.
+
+```bash
+DELETE /api/users/:id/twofa
+```
+
+```bash cURL
+curl -u 'username:password' -X DELETE http://localhost:9000/api/users/1/twofa
+```
+
+## Roles API
+
+Manage role-based access control (RBAC) for users and lists.
+
+### Get User Roles
+
+Retrieve all user roles and their permissions.
+
+```bash
+GET /api/roles/users
+```
+
+```bash cURL
+curl -u 'username:password' http://localhost:9000/api/roles/users
+```
+
+**Response**:
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "name": "Super Admin",
+      "type": "user",
+      "permissions": ["*"],
+      "lists": []
+    },
+    {
+      "id": 2,
+      "name": "Campaign Manager",
+      "type": "user",
+      "permissions": ["campaigns:get", "campaigns:manage", "subscribers:get"],
+      "lists": []
+    }
+  ]
+}
+```
+
+**Required Permission**: `roles:get`
+
+### Get List Roles
+
+Retrieve all list roles (for list-level permissions).
+
+```bash
+GET /api/roles/lists
+```
+
+```bash cURL
+curl -u 'username:password' http://localhost:9000/api/roles/lists
+```
+
+**Required Permission**: `roles:get`
+
+### Create User Role
+
+Create a new user role with specified permissions.
+
+```bash
+POST /api/roles/users
+```
+
+<ParamField body="name" type="string" required>
+  Role name
+</ParamField>
+
+<ParamField body="permissions" type="array" required>
+  Array of permission strings (e.g., `["subscribers:get", "campaigns:manage"]`)
+</ParamField>
+
+<ParamField body="lists" type="array">
+  Array of list IDs this role can access (empty array for all lists)
+</ParamField>
+
+**Example Request**:
+```bash
+curl -u 'admin:password' -X POST http://localhost:9000/api/roles/users \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Newsletter Editor",
+    "permissions": [
+      "campaigns:get",
+      "campaigns:manage",
+      "templates:get",
+      "templates:manage",
+      "subscribers:get"
+    ],
+    "lists": []
+  }'
+```
+
+**Required Permission**: `roles:manage`
+
+### Create List Role
+
+Create a new list role for list-level permissions.
+
+```bash
+POST /api/roles/lists
+```
+
+<ParamField body="name" type="string" required>
+  Role name
+</ParamField>
+
+<ParamField body="permissions" type="array" required>
+  Array of list-specific permission strings
+</ParamField>
+
+<ParamField body="lists" type="array" required>
+  Array of list IDs this role applies to
+</ParamField>
+
+**Example Request**:
+```bash
+curl -u 'admin:password' -X POST http://localhost:9000/api/roles/lists \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Newsletter A Manager",
+    "permissions": ["subscribers:manage", "campaigns:manage"],
+    "lists": [1, 2]
+  }'
+```
+
+**Required Permission**: `roles:manage`
+
+### Update User Role
+
+Update an existing user role.
+
+```bash
+PUT /api/roles/users/:id
+```
+
+<ParamField body="name" type="string">
+  Role name
+</ParamField>
+
+<ParamField body="permissions" type="array">
+  Updated permissions array
+</ParamField>
+
+<ParamField body="lists" type="array">
+  Updated list IDs array
+</ParamField>
+
+**Example Request**:
+```bash
+curl -u 'admin:password' -X PUT http://localhost:9000/api/roles/users/3 \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Senior Editor",
+    "permissions": ["campaigns:get", "campaigns:manage", "templates:get", "templates:manage", "media:get", "media:manage"]
+  }'
+```
+
+**Required Permission**: `roles:manage`
+
+### Update List Role
+
+Update an existing list role.
+
+```bash
+PUT /api/roles/lists/:id
+```
+
+**Required Permission**: `roles:manage`
+
+### Delete Role
+
+Delete a user or list role.
+
+```bash
+DELETE /api/roles/:id
+```
+
+```bash cURL
+curl -u 'admin:password' -X DELETE http://localhost:9000/api/roles/5
+```
+
+**Required Permission**: `roles:manage`
+
+<Warning>
+Cannot delete a role that is currently assigned to users. Reassign users to a different role first.
+</Warning>
+
+## Permission Reference
+
+Common permissions used in roles:
+
+| Permission | Description |
+|-----------|-------------|
+| `*` | Super admin - all permissions |
+| `subscribers:get` | View subscribers |
+| `subscribers:get_all` | View all subscribers across all lists |
+| `subscribers:manage` | Create, update, delete subscribers |
+| `subscribers:import` | Import subscribers |
+| `lists:get` | View lists |
+| `lists:manage` | Create, update, delete lists |
+| `lists:manage_all` | Manage all lists (bypass list role restrictions) |
+| `campaigns:get` | View campaigns |
+| `campaigns:get_all` | View all campaigns |
+| `campaigns:manage` | Create, update, delete campaigns |
+| `campaigns:manage_all` | Manage all campaigns |
+| `campaigns:get_analytics` | View campaign analytics |
+| `templates:get` | View templates |
+| `templates:manage` | Create, update, delete templates |
+| `media:get` | View media files |
+| `media:manage` | Upload, delete media files |
+| `bounces:get` | View bounces |
+| `bounces:manage` | Delete bounces, blocklist subscribers |
+| `settings:get` | View settings |
+| `settings:manage` | Update settings |
+| `settings:maintain` | Run maintenance operations |
+| `users:get` | View users |
+| `users:manage` | Create, update, delete users |
+| `roles:get` | View roles |
+| `roles:manage` | Create, update, delete roles |
+| `tx:send` | Send transactional emails |
+| `webhooks:post_bounce` | Post to bounce webhooks |
+
+## Use Cases
+
+<Accordion title="Create a Campaign Manager Role">
+  Create a role for users who can manage campaigns but not subscribers or settings:
+
+  ```bash
+  curl -u 'admin:password' -X POST http://localhost:9000/api/roles/users \
+    -H 'Content-Type: application/json' \
+    -d '{
+      "name": "Campaign Manager",
+      "permissions": [
+        "campaigns:get",
+        "campaigns:manage",
+        "templates:get",
+        "templates:manage",
+        "media:get",
+        "media:manage",
+        "subscribers:get"
+      ]
+    }'
+  ```
+</Accordion>
+
+<Accordion title="Create a Read-Only Analyst Role">
+  Create a role for analytics and reporting without edit permissions:
+
+  ```bash
+  curl -u 'admin:password' -X POST http://localhost:9000/api/roles/users \
+    -H 'Content-Type: application/json' \
+    -d '{
+      "name": "Analyst",
+      "permissions": [
+        "campaigns:get",
+        "campaigns:get_all",
+        "campaigns:get_analytics",
+        "subscribers:get",
+        "subscribers:get_all",
+        "lists:get"
+      ]
+    }'
+  ```
+</Accordion>
+
+<Accordion title="Create an API User for Integrations">
+  Create an API-only user for external integrations:
+
+  ```bash
+  curl -u 'admin:password' -X POST http://localhost:9000/api/users \
+    -H 'Content-Type: application/json' \
+    -d '{
+      "email": "integration@example.com",
+      "name": "External Integration",
+      "password": "api-key-here",
+      "type": "api",
+      "status": "enabled",
+      "role_id": 5
+    }'
+  ```
+</Accordion>
+
+## Best Practices
+
+<Card title="Principle of Least Privilege" icon="shield">
+  Assign users only the permissions they need for their role. Start with minimal permissions and add more as needed.
+</Card>
+
+<Card title="Separate API Users" icon="robot">
+  Create dedicated API users (type: `api`) for integrations rather than using regular user accounts.
+</Card>
+
+<Card title="Regular Audits" icon="magnifying-glass">
+  Periodically review user accounts and permissions to ensure they're still appropriate.
+</Card>
+
+<Card title="Document Custom Roles" icon="file-lines">
+  Maintain documentation of your custom roles and their intended use cases.
+</Card>

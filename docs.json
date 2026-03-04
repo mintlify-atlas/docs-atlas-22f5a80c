@@ -97,7 +97,10 @@
               "api/media",
               "api/bounces",
               "api/transactional",
-              "api/import"
+              "api/import",
+              "api/users",
+              "api/settings",
+              "api/public"
             ]
           }
         ]

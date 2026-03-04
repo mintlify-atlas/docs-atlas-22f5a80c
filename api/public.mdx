@@ -1,0 +1,590 @@
+---
+title: "Public API"
+description: "Public endpoints for subscriber-facing features"
+---
+
+## Overview
+
+The Public API provides unauthenticated endpoints for subscriber-facing features like subscriptions, preferences, and archives. These endpoints are designed to be used from public websites and subscription forms.
+
+<Note>
+Public API endpoints do not require authentication and are accessible to anyone. Use CAPTCHA protection to prevent abuse.
+</Note>
+
+## Lists
+
+### Get Public Lists
+
+Retrieve all public mailing lists.
+
+```bash
+GET /api/public/lists
+```
+
+```bash cURL
+curl http://localhost:9000/api/public/lists
+```
+
+**Response**:
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "uuid": "5e5e7e5e-5e5e-5e5e-5e5e-5e5e7e5e7e5e",
+      "name": "Newsletter",
+      "type": "public",
+      "optin": "double",
+      "description": "Weekly newsletter with updates and tips"
+    },
+    {
+      "id": 2,
+      "uuid": "6f6f8f6f-6f6f-6f6f-6f6f-6f6f8f6f8f6f",
+      "name": "Product Updates",
+      "type": "public",
+      "optin": "single",
+      "description": "Get notified about new features and releases"
+    }
+  ]
+}
+```
+
+<ResponseField name="id" type="integer">
+  List ID
+</ResponseField>
+
+<ResponseField name="uuid" type="string">
+  List UUID
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  List name
+</ResponseField>
+
+<ResponseField name="type" type="string">
+  Always `public` for this endpoint
+</ResponseField>
+
+<ResponseField name="optin" type="string">
+  Opt-in mode: `single` or `double`
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  List description
+</ResponseField>
+
+## Subscriptions
+
+### Subscribe to Lists
+
+Subscribe an email address to one or more public lists.
+
+```bash
+POST /api/public/subscription
+```
+
+<ParamField body="email" type="string" required>
+  Subscriber email address
+</ParamField>
+
+<ParamField body="name" type="string">
+  Subscriber name
+</ParamField>
+
+<ParamField body="list_uuids" type="array" required>
+  Array of list UUIDs to subscribe to
+</ParamField>
+
+<ParamField body="altcha" type="string">
+  Altcha CAPTCHA challenge response (if enabled)
+</ParamField>
+
+<ParamField body="h-captcha-response" type="string">
+  HCaptcha response token (if enabled)
+</ParamField>
+
+**Example Request**:
+```bash
+curl -X POST http://localhost:9000/api/public/subscription \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "email": "subscriber@example.com",
+    "name": "John Doe",
+    "list_uuids": ["5e5e7e5e-5e5e-5e5e-5e5e-5e5e7e5e7e5e"]
+  }'
+```
+
+**Response**:
+```json
+{
+  "data": {
+    "message": "Subscription successful"
+  }
+}
+```
+
+<Info>
+For double opt-in lists, a confirmation email will be sent. For single opt-in lists, the subscriber is added immediately.
+</Info>
+
+### HTML Form Example
+
+```html
+<form action="http://localhost:9000/api/public/subscription" method="POST">
+  <input type="email" name="email" placeholder="Email" required>
+  <input type="text" name="name" placeholder="Name">
+  <input type="hidden" name="list_uuids" value="5e5e7e5e-5e5e-5e5e-5e5e-5e5e7e5e7e5e">
+  <button type="submit">Subscribe</button>
+</form>
+```
+
+### JavaScript Example
+
+```javascript
+async function subscribe(email, name, listUUIDs) {
+  const response = await fetch('http://localhost:9000/api/public/subscription', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      email: email,
+      name: name,
+      list_uuids: listUUIDs
+    })
+  });
+  
+  const data = await response.json();
+  if (response.ok) {
+    console.log('Subscription successful:', data);
+  } else {
+    console.error('Subscription failed:', data);
+  }
+}
+
+subscribe('user@example.com', 'User Name', ['5e5e7e5e-5e5e-5e5e-5e5e-5e5e7e5e7e5e']);
+```
+
+## CAPTCHA
+
+### Get Altcha Challenge
+
+Generate an Altcha CAPTCHA challenge.
+
+```bash
+GET /api/public/captcha/altcha
+```
+
+```bash cURL
+curl http://localhost:9000/api/public/captcha/altcha
+```
+
+**Response**:
+```json
+{
+  "data": {
+    "challenge": "base64-encoded-challenge",
+    "salt": "random-salt",
+    "algorithm": "SHA-256",
+    "signature": "challenge-signature"
+  }
+}
+```
+
+<Info>
+Altcha is a privacy-friendly proof-of-work CAPTCHA that doesn't track users or require external services.
+</Info>
+
+### Using Altcha in Forms
+
+Include the Altcha widget in your subscription form:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <script type="module" src="https://cdn.jsdelivr.net/npm/altcha@latest/dist/altcha.min.js"></script>
+</head>
+<body>
+  <form id="subscribeForm">
+    <input type="email" name="email" placeholder="Email" required>
+    <input type="text" name="name" placeholder="Name">
+    
+    <!-- Altcha widget -->
+    <altcha-widget 
+      challengeurl="http://localhost:9000/api/public/captcha/altcha"
+      hidefooter="true">
+    </altcha-widget>
+    
+    <button type="submit">Subscribe</button>
+  </form>
+
+  <script>
+    document.getElementById('subscribeForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const formData = new FormData(e.target);
+      const altchaWidget = document.querySelector('altcha-widget');
+      const altchaResponse = altchaWidget.value;
+      
+      const response = await fetch('http://localhost:9000/api/public/subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.get('email'),
+          name: formData.get('name'),
+          list_uuids: ['your-list-uuid'],
+          altcha: altchaResponse
+        })
+      });
+      
+      const data = await response.json();
+      console.log(data);
+    });
+  </script>
+</body>
+</html>
+```
+
+## Campaign Archives
+
+### Get Campaign Archives
+
+Retrieve public campaign archives.
+
+```bash
+GET /api/public/archive
+```
+
+**Query Parameters**:
+- `page` - Page number (default: 1)
+- `per_page` - Results per page (default: 20)
+
+```bash cURL
+curl http://localhost:9000/api/public/archive
+```
+
+**Response**:
+```json
+{
+  "data": {
+    "results": [
+      {
+        "id": 123,
+        "uuid": "abc123",
+        "subject": "Monthly Newsletter - January 2024",
+        "created_at": "2024-01-15T10:00:00Z",
+        "sent_at": "2024-01-15T10:30:00Z",
+        "url": "http://localhost:9000/archive/abc123"
+      }
+    ],
+    "total": 50,
+    "per_page": 20,
+    "page": 1
+  }
+}
+```
+
+<Note>
+This endpoint is only available if `enable_public_archive` is set to `true` in settings.
+</Note>
+
+## Web Pages
+
+The following pages are available for subscriber-facing interactions:
+
+### Subscription Form Page
+
+```
+GET /subscription/form
+```
+
+Display a public subscription form with all public lists.
+
+**URL**: `http://localhost:9000/subscription/form`
+
+### Subscription Management Page
+
+```
+GET /subscription/:campaignUUID/:subscriberUUID
+```
+
+Manage subscription preferences for a specific subscriber.
+
+**URL**: `http://localhost:9000/subscription/{campaign-uuid}/{subscriber-uuid}`
+
+### Opt-in Confirmation Page
+
+```
+GET /subscription/optin/:subscriberUUID
+```
+
+Confirm subscription for double opt-in lists.
+
+**URL**: `http://localhost:9000/subscription/optin/{subscriber-uuid}`
+
+### Campaign View Page
+
+```
+GET /campaign/:campaignUUID/:subscriberUUID
+```
+
+View a campaign message in the browser.
+
+**URL**: `http://localhost:9000/campaign/{campaign-uuid}/{subscriber-uuid}`
+
+### Campaign Archive Page
+
+```
+GET /archive/:id
+```
+
+View an archived campaign.
+
+**URL**: `http://localhost:9000/archive/{campaign-id}`
+
+### Latest Archive Page
+
+```
+GET /archive/latest
+```
+
+View the most recent archived campaign.
+
+**URL**: `http://localhost:9000/archive/latest`
+
+### Archive Feed (RSS)
+
+```
+GET /archive.xml
+```
+
+RSS feed of campaign archives.
+
+**URL**: `http://localhost:9000/archive.xml`
+
+## Subscriber Actions
+
+### Export Subscriber Data
+
+Subscriber can request their data export.
+
+```
+POST /subscription/export/:subscriberUUID
+```
+
+### Wipe Subscriber Data
+
+Subscriber can request complete data deletion (GDPR right to be forgotten).
+
+```
+POST /subscription/wipe/:subscriberUUID
+```
+
+<Warning>
+Data wipe is permanent and cannot be undone. The subscriber will be completely removed from the system.
+</Warning>
+
+## Link Tracking
+
+### Link Redirect
+
+Track link clicks and redirect to target URL.
+
+```
+GET /link/:linkUUID/:campaignUUID/:subscriberUUID
+```
+
+This endpoint is automatically used in campaign emails when link tracking is enabled.
+
+### Campaign View Tracking
+
+Track campaign opens with a tracking pixel.
+
+```
+GET /campaign/:campaignUUID/:subscriberUUID/px.png
+```
+
+Returns a 1x1 transparent PNG pixel for email open tracking.
+
+## CORS and Security
+
+### CORS Headers
+
+Public API endpoints support CORS for cross-origin requests. Configure allowed origins in settings:
+
+```toml
+[app.security]
+cors_origins = ["https://example.com", "https://app.example.com"]
+```
+
+### Rate Limiting
+
+<Warning>
+Public endpoints do not have built-in rate limiting. Implement rate limiting at the reverse proxy level (nginx, Caddy, etc.) to prevent abuse.
+</Warning>
+
+Example nginx rate limiting:
+
+```nginx
+limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
+
+location /api/public/ {
+    limit_req zone=api burst=20;
+    proxy_pass http://localhost:9000;
+}
+```
+
+## Integration Examples
+
+### React Subscription Component
+
+```jsx
+import React, { useState, useEffect } from 'react';
+
+function SubscriptionForm() {
+  const [lists, setLists] = useState([]);
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [selectedLists, setSelectedLists] = useState([]);
+
+  useEffect(() => {
+    // Fetch public lists
+    fetch('http://localhost:9000/api/public/lists')
+      .then(res => res.json())
+      .then(data => setLists(data.data));
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    const response = await fetch('http://localhost:9000/api/public/subscription', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        name,
+        list_uuids: selectedLists
+      })
+    });
+
+    const data = await response.json();
+    if (response.ok) {
+      alert('Subscription successful!');
+    } else {
+      alert('Subscription failed: ' + data.message);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="Email"
+        required
+      />
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Name"
+      />
+      
+      <div>
+        {lists.map(list => (
+          <label key={list.uuid}>
+            <input
+              type="checkbox"
+              value={list.uuid}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setSelectedLists([...selectedLists, list.uuid]);
+                } else {
+                  setSelectedLists(selectedLists.filter(id => id !== list.uuid));
+                }
+              }}
+            />
+            {list.name}
+          </label>
+        ))}
+      </div>
+      
+      <button type="submit">Subscribe</button>
+    </form>
+  );
+}
+```
+
+### WordPress Integration
+
+```php
+<?php
+// WordPress shortcode for subscription form
+function listmonk_subscription_form() {
+    $api_url = 'http://localhost:9000';
+    
+    // Fetch public lists
+    $response = wp_remote_get($api_url . '/api/public/lists');
+    $lists = json_decode(wp_remote_retrieve_body($response))->data;
+    
+    ob_start();
+    ?>
+    <form id="listmonk-subscribe" method="POST">
+        <input type="email" name="email" placeholder="Email" required>
+        <input type="text" name="name" placeholder="Name">
+        
+        <?php foreach ($lists as $list): ?>
+            <label>
+                <input type="checkbox" name="lists[]" value="<?php echo $list->uuid; ?>">
+                <?php echo esc_html($list->name); ?>
+            </label>
+        <?php endforeach; ?>
+        
+        <button type="submit">Subscribe</button>
+    </form>
+    
+    <script>
+    document.getElementById('listmonk-subscribe').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        
+        const response = await fetch('<?php echo $api_url; ?>/api/public/subscription', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email: formData.get('email'),
+                name: formData.get('name'),
+                list_uuids: formData.getAll('lists[]')
+            })
+        });
+        
+        const data = await response.json();
+        alert(response.ok ? 'Subscription successful!' : 'Subscription failed!');
+    });
+    </script>
+    <?php
+    return ob_get_clean();
+}
+add_shortcode('listmonk_subscribe', 'listmonk_subscription_form');
+?>
+```
+
+## Best Practices
+
+<Card title="Use UUIDs for Lists" icon="fingerprint">
+  Always use list UUIDs instead of IDs in public forms. UUIDs are stable and won't change if you reorganize your lists.
+</Card>
+
+<Card title="Enable CAPTCHA" icon="shield">
+  Protect public subscription endpoints with Altcha or HCaptcha to prevent spam and bot submissions.
+</Card>
+
+<Card title="Validate Email Addresses" icon="envelope-circle-check">
+  Implement client-side and server-side email validation to catch typos before submission.
+</Card>
+
+<Card title="Handle Errors Gracefully" icon="triangle-exclamation">
+  Display user-friendly error messages for failed subscriptions and provide clear next steps.
+</Card>
